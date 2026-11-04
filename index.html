@@ -357,11 +357,14 @@ function solidOneWayTop(tx,ty){ if(tx<0||tx>=MW||ty<0||ty>=MH) return false; ret
 
 // ── PHYSICS ──────────────────────────────────────────────
 class Body{
-  constructor(x,y,w,h){ this.x=x;this.y=y;this.w=w;this.h=h;this.vx=0;this.vy=0;this.onGround=false; }
+  constructor(x,y,w,h){ this.x=x;this.y=y;this.w=w;this.h=h;this.vx=0;this.vy=0;this.onGround=false;this.dropT=0; }
   step(grav=0.45){
-    this.vy=Math.min(this.vy+grav,18);
+    // Terminal velocity < TH so nothing tunnels through a tile in one frame
+    this.vy=Math.min(this.vy+grav,TH-1);
     this.x+=this.vx; this._rx();
-    this.y+=this.vy; this.onGround=false; this._ry();
+    const prevB=this.y+this.h;
+    this.y+=this.vy; this.onGround=false; this._ry(prevB);
+    if(this.dropT>0) this.dropT--;
   }
   _rx(){
     const l=this.x,r=this.x+this.w-1,t=this.y+4,b=this.y+this.h-5;
@@ -369,13 +372,29 @@ class Body{
     if(hd(l,t)||hd(l,b)){this.x=(Math.floor(l/TW)+1)*TW;this.vx=0;}
     if(hd(r,t)||hd(r,b)){this.x=Math.floor(r/TW)*TW-this.w;this.vx=0;}
   }
-  _ry(){
+  _ry(prevB){
     const l=this.x+2,r=this.x+this.w-3;
     const hd=(px,py)=>solidFull(Math.floor(px/TW),Math.floor(py/TH));
-    const any=(px,py)=>{ const tx=Math.floor(px/TW),ty=Math.floor(py/TH); return solidFull(tx,ty)||solidOneWayTop(tx,ty); };
     if(hd(l,this.y)||hd(r,this.y)){this.y=(Math.floor(this.y/TH)+1)*TH;if(this.vy<0)this.vy=0;}
+    if(this.vy<0) return;
+    // Land only on tile tops the feet actually crossed this frame (true one-way platforms).
+    // The old check snapped to any tile overlapping the bottom pixel, so on platforms
+    // onGround flickered every other frame and bodies rising through a platform got teleported up.
+    const tl=Math.floor(l/TW), tr=Math.floor(r/TW);
+    const B=this.y+this.h;
+    const ty0=Math.ceil((prevB-0.01)/TH), ty1=Math.floor(B/TH);
+    for(let ty=ty0;ty<=ty1;ty++){
+      const hard=solidFull(tl,ty)||solidFull(tr,ty);
+      const oneWay=this.dropT<=0&&(solidOneWayTop(tl,ty)||solidOneWayTop(tr,ty));
+      if(hard||oneWay){ this.y=ty*TH-this.h; this.onGround=true; this.vy=0; return; }
+    }
+    // Safety: feet embedded in the indestructible floor → push out
     const bot=this.y+this.h-1;
-    if(this.vy>=0&&(any(l,bot)||any(r,bot))){this.y=Math.floor(bot/TH)*TH-this.h;this.onGround=true;this.vy=0;}
+    if(hd(l,bot)||hd(r,bot)){ this.y=Math.floor(bot/TH)*TH-this.h; this.onGround=true; this.vy=0; }
+  }
+  standingOnOneWay(){
+    const ty=Math.floor((this.y+this.h)/TH);
+    return solidOneWayTop(Math.floor((this.x+2)/TW),ty)||solidOneWayTop(Math.floor((this.x+this.w-3)/TW),ty);
   }
   hits(o){ return this.x<o.x+o.w&&this.x+this.w>o.x&&this.y<o.y+o.h&&this.y+this.h>o.y; }
 }
@@ -387,15 +406,17 @@ function checkDustLanding(p){
 
 // ── CONTROLS ─────────────────────────────────────────────
 const CTRL=[
-  // P1: arrows + AltGr + CtrlRight | store: Z W X C (arma, fire, salto, para)
-  {left:'ArrowLeft',right:'ArrowRight',aimCW:'ArrowUp',aimCCW:'ArrowDown',
-   jump:'AltRight', shoot:'ControlRight',
+  // P1: arrows + AltGr/ShiftDir (saltar) + CtrlDir (disparar) | store: Z X C V
+  {left:'ArrowLeft',right:'ArrowRight',aimUp:'ArrowUp',aimDown:'ArrowDown',
+   jump:['AltRight','ShiftRight'], shoot:'ControlRight',
    b1:'KeyZ', b2:'KeyX', b3:'KeyC', b4:'KeyV'},
-  // P2: WASD + 1 (saltar) + Q (disparar) | store: G H J K
-  {left:'KeyA',right:'KeyD',aimCW:'KeyW',aimCCW:'KeyS',
-   jump:'Digit1', shoot:'KeyQ',
+  // P2: WASD + 1/Espaço (saltar) + Q (disparar) | store: G H J K
+  {left:'KeyA',right:'KeyD',aimUp:'KeyW',aimDown:'KeyS',
+   jump:['Digit1','Space'], shoot:'KeyQ',
    b1:'KeyG', b2:'KeyH', b3:'KeyJ', b4:'KeyK'},
 ];
+// A control can be one key code or a list of alternatives
+const kd=c=>Array.isArray(c)?c.some(k=>keys[k]):!!keys[c];
 const PCOLS=[{m:P.p1,d:P.p1D},{m:P.p2,d:P.p2D}];
 const PW=10,PH=16,PSPD=3.6,PJMP=-9.5,PHP=100;
 const BASE_DMG=10;
@@ -441,15 +462,15 @@ function initPlayers(sx,sy){
     const p=new Body(sx+i*22,sy,PW,PH);
     p.id=i; p.col=PCOLS[i]; p.ctrl=CTRL[i];
     p.hp=PHP; p.maxHP=PHP;
-    p.facing=1; p.aimAngle=i===0?0:Math.PI;
+    // Aim = elevation relative to facing (−π/2 up … +π/2 down); facing follows movement
+    p.facing=i===0?1:-1; p.aimElev=0; p.aimAngle=i===0?0:Math.PI;
     p.shootCD=0; p.iframes=0; p.onGround=false;
-    p.jumpPressed=false; p.coyote=0;
+    p.jumpPressed=false; p.coyote=0; p.jumpBuf=0; p.kbVx=0;
     p.weaponLvl=ps.weaponLvl;
     p.fireRate=ps.fireRate;
     p.doubleJump=ps.doubleJump;
     p.parachute=ps.parachute;
-    p.maxJumps=ps.doubleJump?2:1;
-    p.jumpsLeft=p.maxJumps;
+    p.airJumps=0;
     p.dmgMult=1;
     p.coins=ps.coins;
     players.push(p);
@@ -614,6 +635,8 @@ window.addEventListener('keydown',e=>{
   if(gState==='PLAY') anyMoved=true;
 });
 window.addEventListener('keyup',e=>keys[e.code]=false);
+// Alt-tab / focus loss (AltGr is a jump key!) would otherwise leave keys stuck down
+window.addEventListener('blur',()=>{ for(const k in keys) keys[k]=false; });
 const jp=c=>justPressed.has(c);
 
 const rnd=(a,b)=>Math.floor(Math.random()*(b-a))+a;
@@ -652,7 +675,6 @@ function initLevel(firstTime=false){
     gState='CIN_CRASH'; cinT=0;
   }
 }
-function nextLevel(){ saveToPersist(); levelNum++; initLevel(false); }
 
 // ═══════════════════════════════════════════════════════
 //  UPDATE
@@ -672,7 +694,6 @@ function update(){
   else if(gState==='PLAY')      uPlay();
   else if(gState==='EXTRACT')   uExtract();
   else if(gState==='WARP')      uWarp();
-  else if(gState==='STORE')     uStore();
   else if(gState==='DEAD')      uDead();
   justPressed.clear();
 }
@@ -923,9 +944,10 @@ function uExtract(){
     es.y+=es.vy;
     if(gFrame%3===0) fx(es.x+rnd(10,46),es.y+45,2,P.flame,3,2);
     if(es.y<-100){
-      saveToPersist();
+      // Bonus + level first, then save (bonus used to be lost unless you bought something)
       for(const p of players) p.coins+=20;
       levelNum++;
+      saveToPersist();
       randomLvlPalette();
       warpTimer=0;
       warpStars=Array.from({length:120},()=>({x:Math.random()*W,y:Math.random()*H,len:rnd(4,30),spd:rnd(8,24)}));
@@ -940,8 +962,10 @@ function uWarp(){
   warpTimer++;
   if(warpTimer===1) fetchLeaderboard(); // pre-fetch
   if(warpTimer>60) storeTimer++;
+  const speed=Math.min(1,warpTimer/40);
+  for(const s of warpStars){ s.x-=s.spd*speed; if(s.x<-s.len*speed) s.x=W+4; }
   if(storeTimer>60&&(jp('Enter')||jp('KeyR')||jp('KeyN'))){
-    initLevel(false);
+    saveToLS(); initLevel(false);
   }
   if(storeTimer>60) uStoreBuy();
 }
@@ -959,7 +983,7 @@ function uStoreBuy(){
       fx(W/2,H/2,30,P.fire,6,3);
     }
     if(jp(p.ctrl.b3)&&p.coins>=COST_DJUMP&&!p.doubleJump){
-      p.coins-=COST_DJUMP; p.doubleJump=true; p.maxJumps=2;
+      p.coins-=COST_DJUMP; p.doubleJump=true;
       persist[p.id].doubleJump=true; persist[p.id].coins=p.coins;
       fx(W/2,H/2,30,P.djump,6,3);
     }
@@ -992,7 +1016,7 @@ function uPlay(){
     for(const [alive,dead] of [[p0,p1],[p1,p0]]){
       if(alive.hp<=0||dead.hp>0) continue;
       const dist=Math.abs((alive.x+PW/2)-(dead.x+PW/2));
-      if(dist<REVIVE_RANGE+PW){
+      if(dist<REVIVE_RANGE+PW&&Math.abs(alive.y-dead.y)<PH){
         // Start or advance revive timer
         dead.reviveTimer=(dead.reviveTimer||0)+1;
         if(dead.reviveTimer>=REVIVE_TIME){
@@ -1044,40 +1068,45 @@ function uPlay(){
 
 // Dead player — apply gravity so they fall to floor, then stay there
 function uDeadPlayer(p){
-  if(p.onGround) return;
-  p.vy=Math.min(p.vy+0.45,18);
-  p.y+=p.vy;
-  // Basic floor check only
-  const bot=p.y+p.h-1, l=p.x+2, r=p.x+p.w-3;
-  const anyBot=(px,py)=>{ const tx=Math.floor(px/TW),ty=Math.floor(py/TH); return solidFull(tx,ty)||solidOneWayTop(tx,ty); };
-  if(p.vy>=0&&(anyBot(l,bot)||anyBot(r,bot))){ p.y=Math.floor(bot/TH)*TH-p.h; p.onGround=true; p.vy=0; }
-  checkDustLanding(p);
+  // Keep simulating so the body falls if its platform gets shot away
+  p.vx=0; p.kbVx=0; p.step(); checkDustLanding(p);
 }
 
 function uPlayer(p){
   const c=p.ctrl;
-  p.vx=0;
-  if(keys[c.left]){p.vx=-PSPD;p.facing=-1;}
-  if(keys[c.right]){p.vx=PSPD;p.facing=1;}
-  if(keys[c.aimCW])  p.aimAngle+=.065;
-  if(keys[c.aimCCW]) p.aimAngle-=.065;
-  p.aimAngle=((p.aimAngle+Math.PI)%(Math.PI*2))-Math.PI;
-  p.facing=Math.cos(p.aimAngle)>0?1:-1;
+  const L=kd(c.left), R=kd(c.right), shootHeld=kd(c.shoot), jumpHeld=kd(c.jump), downHeld=kd(c.aimDown);
+  // Movement (+ decaying knockback so hits actually push you)
+  p.vx=(R?PSPD:0)-(L?PSPD:0)+p.kbVx;
+  p.kbVx*=.82; if(Math.abs(p.kbVx)<.1) p.kbVx=0;
+  // Facing follows movement; holding fire locks it (strafe: retreat while shooting)
+  if(!shootHeld){ if(L&&!R) p.facing=-1; else if(R&&!L) p.facing=1; }
+  // Up always raises the gun, down always lowers it, whichever way you face
+  if(kd(c.aimUp))  p.aimElev-=.08;
+  if(downHeld)     p.aimElev+=.08;
+  p.aimElev=clamp(p.aimElev,-Math.PI/2,Math.PI/2);
+  p.aimAngle=p.facing>0?p.aimElev:Math.PI-p.aimElev;
 
-  if(p.onGround){ p.coyote=8; p.jumpsLeft=p.maxJumps; }
+  if(p.onGround){ p.coyote=6; p.airJumps=p.doubleJump?1:0; }
   else if(p.coyote>0) p.coyote--;
 
   const wasOnGround=p.onGround;
-  const freshJump=keys[c.jump]&&!p.jumpPressed;
-  if(freshJump){
-    if(p.coyote>0||p.onGround){ p.vy=PJMP; p.coyote=0; sndJump(false); }
-    else if(p.jumpsLeft>0){ p.vy=PJMP*.88; p.jumpsLeft--; fx(p.x+PW/2,p.y+PH,6,p.col.m,2,2); sndJump(true); }
+  const freshJump=jumpHeld&&!p.jumpPressed;
+  // Jump buffer: a press shortly before landing still jumps
+  if(freshJump) p.jumpBuf=7; else if(p.jumpBuf>0) p.jumpBuf--;
+  if(p.jumpBuf>0){
+    if(freshJump&&downHeld&&p.onGround&&p.standingOnOneWay()){
+      p.dropT=10; p.y+=2; p.onGround=false; p.coyote=0; p.jumpBuf=0;   // ↓ + saltar: atravessa plataforma
+    } else if(p.coyote>0){
+      p.vy=PJMP; p.coyote=0; p.jumpBuf=0; sndJump(false);
+    } else if(freshJump&&p.airJumps>0){
+      p.vy=PJMP*.88; p.airJumps--; p.jumpBuf=0; fx(p.x+PW/2,p.y+PH,6,p.col.m,2,2); sndJump(true);
+    }
   }
-  p.jumpPressed=keys[c.jump];
-  if(!keys[c.jump]&&p.vy<-3) p.vy+=.8;
+  p.jumpPressed=jumpHeld;
+  if(!jumpHeld&&p.vy<-3) p.vy+=.8;
 
   // Parachute
-  if(p.parachute&&keys[c.jump]&&p.vy>1.5&&!p.onGround){
+  if(p.parachute&&jumpHeld&&p.vy>1.5&&!p.onGround){
     p.vy=lerp(p.vy,1.5,.18);
     if(gFrame%6===p.id){ fx(p.x+PW/2,p.y-2,1,P.para,1.5,2); if(gFrame%24===p.id*12) sndPara(); }
   }
@@ -1088,7 +1117,7 @@ function uPlayer(p){
   if(p.onGround&&!wasOnGround&&p.vy===0) sndLand();
 
   p.shootCD--;
-  if(keys[c.shoot]&&p.shootCD<=0){
+  if(shootHeld&&p.shootCD<=0){
     const pcx=p.x+PW/2, pcy=p.y+PH/2;
     const vx=Math.cos(p.aimAngle)*11, vy=Math.sin(p.aimAngle)*11;
     pBullets.push({x:pcx+vx*.5,y:pcy+vy*.5,vx,vy,life:70,pid:p.id,dmg:bulletDmg(p)});
@@ -1101,7 +1130,7 @@ function uPlayer(p){
     for(let i=bBullets.length-1;i>=0;i--){
       const b=bBullets[i];
       if(p.hits({x:b.x-b.r,y:b.y-b.r,w:b.r*2,h:b.r*2})){
-        p.hp-=b.dmg||12; p.iframes=70; p.vx+=(p.x<b.x?-1:1)*4; p.vy=-3;
+        p.hp-=b.dmg||12; p.iframes=70; p.kbVx=(p.x<b.x?-1:1)*4; p.vy=-3;
         fx(p.x+PW/2,p.y+PH/2,8,p.col.m,3,2); bBullets.splice(i,1); sndHit();
       }
     }
@@ -1126,7 +1155,7 @@ function uPlayer(p){
         }
         if(p.iframes<=0){
           const dir=pushLeft?-1:1;
-          p.hp-=18; p.iframes=90; p.vx=dir*5; p.vy=-4;
+          p.hp-=18; p.iframes=90; p.kbVx=dir*5; p.vy=-4;
           fx(p.x+PW/2,p.y+PH/2,10,P.orange,4,2); shake=Math.max(shake,8); sndHit();
         }
       } else {
@@ -1141,6 +1170,7 @@ function uPlayer(p){
 
 function uBoss(){
   pushDust(boss.x,BW);
+  if(boss.flash>0) boss.flash--;
   if(!boss.rising){
     boss.burstTimer++;
     if(boss.burstTimer>=BURST_INTERVAL&&boss.burstState==='NONE'){ boss.burstState='WINDUP'; boss.burstWindup=0; boss.burstTimer=0; sndBurst(); }
@@ -1203,7 +1233,7 @@ function uBoss(){
   for(let i=pBullets.length-1;i>=0;i--){
     const b=pBullets[i];
     if(boss.hits({x:b.x-2,y:b.y-2,w:5,h:5})){
-      boss.hp=Math.max(0,boss.hp-(b.dmg||10)); pBullets.splice(i,1);
+      boss.hp=Math.max(0,boss.hp-(b.dmg||10)); pBullets.splice(i,1); boss.flash=3;
       fx(b.x,b.y,4,P.hpR,2,2); shake=Math.max(shake,2); sndBossHit();
       boss.hitCounter++;
       // Double frequency drops (every 5 hits = coins, every 5% = HP)
@@ -1213,35 +1243,6 @@ function uBoss(){
       if(pct>boss.phaseDrops&&boss.hp>0){ boss.phaseDrops=pct; spawnDrop(bcx+rnd(-15,15),bcy,'HP'); shake=Math.max(shake,12); }
     }
   }
-}
-
-// ── STORE ────────────────────────────────────────────────
-function uStore(){
-  storeTimer++;
-  for(const p of players){
-    const c=p.ctrl;
-    if(jp(c.b1)&&p.coins>=COST_WEAPON){
-      p.coins-=COST_WEAPON; p.weaponLvl++;
-      persist[p.id].weaponLvl=p.weaponLvl; persist[p.id].coins=p.coins;
-      fx(W/2,H/2,25,P.gold,5,3);
-    }
-    if(jp(c.b2)&&p.coins>=COST_FIRE&&!p.fireRate){
-      p.coins-=COST_FIRE; p.fireRate=true;
-      persist[p.id].fireRate=true; persist[p.id].coins=p.coins;
-      fx(W/2,H/2,25,P.fire,5,3);
-    }
-    if(jp(c.b3)&&p.coins>=COST_DJUMP&&!p.doubleJump){
-      p.coins-=COST_DJUMP; p.doubleJump=true; p.maxJumps=2; p.jumpsLeft=2;
-      persist[p.id].doubleJump=true; persist[p.id].coins=p.coins;
-      fx(W/2,H/2,25,P.djump,5,3);
-    }
-    if(jp(c.b4)&&p.coins>=COST_PARA&&!p.parachute){
-      p.coins-=COST_PARA; p.parachute=true;
-      persist[p.id].parachute=true; persist[p.id].coins=p.coins;
-      fx(W/2,H/2,25,P.para,5,3);
-    }
-  }
-  if(storeTimer>60&&(jp('Enter')||jp('KeyR')||jp('KeyN'))) nextLevel();
 }
 
 function uDead(){
@@ -1300,7 +1301,7 @@ function draw(){
     for(const p of players) dPlayer(p);
     dExtractScene();
   }
-  else if(gState==='WARP'||gState==='STORE'){
+  else if(gState==='WARP'){
     dWarpScene();
   }
   for(const p of particles){
@@ -1555,12 +1556,12 @@ function dMenu(){
   ctx.fillStyle='#5050a0';
   ctx.fillText('CONTROLOS', W/2, ty+14);
   const rows=[
-    {c:'#6090c8', t:'P1:  ← →  Mover   ↑ ↓  Mira   AltGr Saltar   Ctrl Dir Disparar'},
-    {c:'#c8a050', t:'P2:  A D  Mover   W S  Mira   1 Saltar   Q Disparar'},
+    {c:'#6090c8', t:'P1:  ← → Mover   ↑ ↓ Mira   AltGr/Shift Dir Saltar   Ctrl Dir Disparar'},
+    {c:'#c8a050', t:'P2:  A D Mover   W S Mira   1/Espaço Saltar   Q Disparar'},
     {c:'#50a870', t:'LOJA P1:  Z Arma   X Cadência   C Salto×2   V Paraquedas'},
     {c:'#50a870', t:'LOJA P2:  G Arma   H Cadência   J Salto×2   K Paraquedas'},
     {c:'#6a6880', t:'Custos:  Arma 100⬤   Cadência 100⬤   Salto×2 50⬤   Para 200⬤'},
-    {c:'#383650', t:'↑ ↓  Selecionar       Enter / Espaço  Confirmar'},
+    {c:'#383650', t:'Disparo fixa a direção  •  Baixo+Saltar desce plataforma  •  Enter Confirmar'},
   ];
   rows.forEach(({c,t},i)=>{
     ctx.fillStyle=c; ctx.font='7px "Share Tech Mono", monospace';
@@ -1820,8 +1821,6 @@ function dWarpScene(){
   // Warp star streaks
   const speed=Math.min(1,(warpTimer/40));
   for(const s of warpStars){
-    s.x-=s.spd*speed;
-    if(s.x<-s.len*speed) s.x=W+4;
     const len=s.len*speed+2;
     const alpha=.2+speed*.7;
     ctx.globalAlpha=alpha;
@@ -1934,7 +1933,7 @@ function dPlayer(p){
 
   const f=p.facing, ang=p.aimAngle, ghost=p.iframes>0&&gFrame%6<3;
   const pcx=x+PW/2, pcy=y+PH/2-1;
-  const isPara=p.parachute&&keys[p.ctrl.jump]&&p.vy>1.5&&!p.onGround;
+  const isPara=p.parachute&&kd(p.ctrl.jump)&&p.vy>1.5&&!p.onGround;
   ctx.save(); if(ghost) ctx.globalAlpha=.35;
   if(p.onGround){ctx.fillStyle='rgba(0,0,0,.28)';ctx.fillRect(x+1,y+PH,PW-2,2);}
   ctx.fillStyle=p.col.d; ctx.fillRect(x+1,y+5,PW-2,PH-5);
@@ -1959,14 +1958,14 @@ function dPlayer(p){
   ctx.fillStyle=p.col.d; ctx.fillRect(0,-2,10,4);
   ctx.fillStyle=p.dmgMult>1?P.dmgx:P.gun; ctx.fillRect(4,-2,8,4);
   ctx.fillStyle='#505060'; ctx.fillRect(10,-1,3,2);
-  ctx.fillStyle=(keys[p.ctrl.shoot]&&p.shootCD<4)?(p.dmgMult>1?P.dmgx:P.yellow):'#404050'; ctx.fillRect(13,-1,2,2);
+  ctx.fillStyle=(kd(p.ctrl.shoot)&&p.shootCD<4)?(p.dmgMult>1?P.dmgx:P.yellow):'#404050'; ctx.fillRect(13,-1,2,2);
   ctx.restore();
   const walk=p.onGround&&Math.abs(p.vx)>.5, lp=Math.floor(gFrame/7)%2;
   ctx.fillStyle=p.col.d;
   if(walk){ctx.fillRect(x+1,y+PH-4+(lp?0:2),3,4);ctx.fillRect(x+PW-4,y+PH-4+(lp?2:0),3,4);}
   else    {ctx.fillRect(x+1,y+PH-4,3,4);ctx.fillRect(x+PW-4,y+PH-4,3,4);}
   ctx.fillStyle='#3a3a4a'; ctx.fillRect(x+(f>0?PW-5:1),y+PH-1,5,3);
-  if(!p.onGround&&p.jumpsLeft<p.maxJumps&&gFrame%4<2&&!isPara){ctx.fillStyle=P.flame;ctx.fillRect(f>0?x-1:x+PW-2,y+8,3,5);}
+  if(!p.onGround&&p.doubleJump&&p.airJumps===0&&gFrame%4<2&&!isPara){ctx.fillStyle=P.flame;ctx.fillRect(f>0?x-1:x+PW-2,y+8,3,5);}
   ctx.restore();
   // Aim orbital
   const OR=20; ctx.save(); ctx.translate(pcx,pcy+2);
@@ -1992,8 +1991,8 @@ function dPlayer(p){
     }
   }
   ctx.restore(); ctx.globalAlpha=1;
-  if(!p.onGround&&p.jumpsLeft>0&&!isPara){
-    for(let j=0;j<p.jumpsLeft;j++){ctx.fillStyle=p.col.m;ctx.globalAlpha=.75;ctx.fillRect(x+PW/2-p.jumpsLeft*3+j*6,y-6,4,4);}
+  if(!p.onGround&&p.airJumps>0&&!isPara){
+    for(let j=0;j<p.airJumps;j++){ctx.fillStyle=p.col.m;ctx.globalAlpha=.75;ctx.fillRect(x+PW/2-p.airJumps*3+j*6,y-6,4,4);}
     ctx.globalAlpha=1;
   }
   // Badges
@@ -2017,6 +2016,7 @@ function dBoss(){
   ctx.fillStyle=blink?hsl(lvl.bossHue,80,65):lvl.bossDark; ctx.fillRect(x,y,BW,BH);
   ctx.fillStyle=blink?hsl(lvl.bossHue,70,55):lvl.bossMain; ctx.fillRect(x+2,y+2,BW-4,BH-4);
   if(isBursting){ctx.globalAlpha=burstP*.5;ctx.fillStyle='#ff0000';ctx.fillRect(x,y,BW,BH);ctx.globalAlpha=1;}
+  if(boss.flash>0){ctx.globalAlpha=.45;ctx.fillStyle='#ffffff';ctx.fillRect(x,y,BW,BH);ctx.globalAlpha=1;}
   ctx.fillStyle=blink?hsl(lvl.bossHue,80,50):lvl.bossDark;
   ctx.fillRect(x+6,y+14,10,14); ctx.fillRect(x+BW-16,y+14,10,14); ctx.fillRect(x+18,y+12,BW-36,8);
   ctx.fillStyle='rgba(0,0,0,.4)'; ctx.fillRect(x+10,y+22,BW-20,14);
@@ -2132,8 +2132,8 @@ function dHUD(){
     const alpha=Math.max(0,(260-gFrame)/110); ctx.globalAlpha=alpha;
     ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(0,H-46,W,46);
     ctx.fillStyle=P.white; ctx.font='8px "Courier New",monospace'; ctx.textAlign='center';
-    ctx.fillText('P1: ← → Mover | ↑ ↓ Mira | AltGr Saltar | Ctrl Dir Disparar',W/2,H-28);
-    if(numPlayers>1) ctx.fillText('P2: A D Mover | W S Mira | 1 Saltar | Q Disparar',W/2,H-13);
+    ctx.fillText('P1: ← → Mover | ↑ ↓ Mira | AltGr/Shift Dir Saltar | Ctrl Dir Disparar | ↓+Saltar desce',W/2,H-28);
+    if(numPlayers>1) ctx.fillText('P2: A D Mover | W S Mira | 1/Espaço Saltar | Q Disparar | S+Saltar desce',W/2,H-13);
     ctx.textAlign='left'; ctx.globalAlpha=1;
   }
 }
@@ -2145,7 +2145,7 @@ function dStore(){
   ctx.fillStyle='#f0b500'; ctx.font='bold 20px Orbitron, monospace';
   ctx.fillText('▸ ARMERIA ◂',W/2,38);
   ctx.fillStyle='#6068a0'; ctx.font='9px "Share Tech Mono", monospace';
-  ctx.fillText(`NÍVEL ${levelNum} COMPLETO  •  +20 MOEDAS BÓNUS`,W/2,56);
+  ctx.fillText(`NÍVEL ${levelNum-1} COMPLETO  •  +20 MOEDAS BÓNUS`,W/2,56);
 
   // Layout: per player, 4 cards in a row
   const numP=numPlayers;
@@ -2379,10 +2379,22 @@ function dConsole(){
   }
 }
 
-function loop(){ update(); draw(); requestAnimationFrame(loop); }
+// Fixed 60 Hz simulation: the game used to run one update per rAF, so on a
+// 120/144 Hz monitor everything (player, boss, bullets) ran 2–2.4× faster.
+const STEP_MS=1000/60;
+let lastT=0, acc=0;
+function loop(t){
+  if(!lastT) lastT=t;
+  acc+=Math.min(t-lastT,250); lastT=t;
+  let n=0;
+  while(acc>=STEP_MS&&n<5){ update(); acc-=STEP_MS; n++; }
+  if(n===5) acc=0;
+  draw();
+  requestAnimationFrame(loop);
+}
 fetchLeaderboard();
 // Wait for web fonts before first draw — eliminates FOUT
-document.fonts.ready.then(()=>{ init(); loop(); });
+document.fonts.ready.then(()=>{ init(); requestAnimationFrame(loop); });
 </script>
 </body>
 </html>
