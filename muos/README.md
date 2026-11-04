@@ -28,6 +28,24 @@ primeira vez, se ainda não estiver instalado).
 
 O 2.º jogador usa um segundo comando (USB-C).
 
+## Co-op em LAN
+
+1. As duas consolas (ou consola + PC) na **mesma rede Wi-Fi**.
+2. Num aparelho: **LAN · CO-OP → CRIAR JOGO** (fica à espera e mostra o IP).
+3. No outro: **LAN · CO-OP → PROCURAR JOGO**, escolhe o anfitrião na lista e carrega em **A**.
+
+O anfitrião corre o jogo; o convidado envia os botões e recebe o estado ~30×/s (ENet, portas
+UDP 47231 para descoberta e 47232 para o jogo). Um jogo LAN não mexe no save local.
+
+Teste no PC com duas janelas: `love gamedata --lanhost` e `love gamedata --languest`.
+
+## Cross-play com o browser
+
+Com o relay a correr num PC da mesma rede (`relay/README.md`), o relay aparece em
+**PROCURAR JOGO** como `ONLINE (relay …)`. Daí podes criar uma sala (o código aparece no ecrã
+para quem está no browser escolher **ONLINE · CO-OP → ENTRAR COM CÓDIGO**) ou entrar numa sala
+criada no browser (o código escolhe-se letra a letra com o D-pad).
+
 ## Diferenças para a versão web
 
 - Ecrã 800×450 desenhado com barras pretas no 640×480 da consola.

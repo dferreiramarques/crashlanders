@@ -23,6 +23,7 @@ stars = {}
 
 -- ── Saves (love.filesystem → conf/love/crashlanders under PortMaster) ──
 function saveGame()
+  if NETL.mode then return end               -- LAN runs never touch the local save
   love.filesystem.write("save.lua", U.ser({ persist = persist, levelNum = levelNum, numPlayers = numPlayers }))
 end
 local function loadGame()
@@ -80,7 +81,7 @@ function initGame()
   loadScores()
 end
 
-local function startCin()
+function startCin()
   cinT = 0; cShots = {}
   cs = { x = -80, y = SH * .44, vx = 3.5, vy = 0, angle = 0, av = 0, scale = .7, exploding = false, explodeT = 0, crashed = false, tumbleAv = 0, tumbleAngle = 0 }
   gState = "CIN_SPACE"
@@ -88,8 +89,8 @@ end
 
 -- ═══ MENU ════════════════════════════════════════════════════
 local function menuOptions()
-  if hasSaveGame then return { "CONTINUAR  ·  NÍV." .. levelNum .. "  ·  " .. numPlayers .. "P", "NOVO JOGO  ·  1 JOGADOR", "NOVO JOGO  ·  2 JOGADORES" } end
-  return { "1 JOGADOR", "2 JOGADORES" }
+  if hasSaveGame then return { "CONTINUAR  ·  NÍV." .. levelNum .. "  ·  " .. numPlayers .. "P", "NOVO JOGO  ·  1 JOGADOR", "NOVO JOGO  ·  2 JOGADORES", "LAN  ·  CO-OP" } end
+  return { "1 JOGADOR", "2 JOGADORES", "LAN  ·  CO-OP" }
 end
 
 function uMenu()
@@ -99,6 +100,7 @@ function uMenu()
   if I.anyPress("down") then menuSel = min(n - 1, menuSel + 1); A.play("menuMove") end
   if I.anyPress("start") or I.anyPress("jump") then
     A.play("menuConfirm")
+    if menuSel == n - 1 then NETL.lobby = "choose"; NETL.sel = 0; gState = "LOBBY"; return end
     if hasSaveGame and menuSel == 0 then
       initLevel(false)
     else
@@ -542,7 +544,7 @@ function uWarp()
   local speed = min(1, warpTimer / 40)
   for _, s in ipairs(warpStars) do s.x = s.x - s.spd * speed; if s.x < -s.len * speed then s.x = SW + 4 end end
   if storeTimer > 60 then
-    for _, p in ipairs(players) do for _, b in ipairs({ "b1", "b2", "b3", "b4" }) do if I.pressed(p.id, b) then buy(p, b) end end end
+    for _, p in ipairs(players) do for _, b in ipairs({ "b1", "b2", "b3", "b4" }) do if PPRESS(p, b) then buy(p, b) end end end
     if I.anyPress("start") then saveGame(); initLevel(false) end
   end
 end
@@ -624,7 +626,7 @@ function uDead()
     return
   end
   if I.anyPress("start") or I.anyPress("jump") then local np = numPlayers; resetPersist(); numPlayers = np; clearSave(); saveGame(); initLevel(false)
-  elseif I.anyPress("back") or I.anyPress("shoot") then resetPersist(); clearSave(); A.stopMusic(); initGame() end
+  elseif I.anyPress("back") or I.anyPress("shoot") then netlanLeave(); resetPersist(); clearSave(); A.stopMusic(); initGame() end
 end
 
 function dDead()
@@ -657,5 +659,132 @@ function dDead()
   if #scores == 0 then G.text("ainda sem scores", SW / 2, y0 + 8, "center", f, "#556677") end
   if scoreSaved and floor(gFrame / 30) % 2 == 0 then
     G.text("[A / START]  RECOMEÇAR   ·   [B / SELECT]  MENU", SW / 2, SH - 22, "center", F("vt", 18), "#dddddd")
+  end
+end
+
+-- ═══ LAN LOBBY ═══════════════════════════════════════════════
+function uLanLobby()
+  A.startMusic()
+  local L = NETL.lobby
+  if L == "choose" then
+    if I.anyPress("up") then NETL.sel = max(0, NETL.sel - 1); A.play("menuMove") end
+    if I.anyPress("down") then NETL.sel = min(2, NETL.sel + 1); A.play("menuMove") end
+    if I.anyPress("jump") or I.anyPress("start") then
+      A.play("menuConfirm")
+      if NETL.sel == 0 then netlanHost() elseif NETL.sel == 1 then netlanBrowse() else gState = "MENU" end
+    end
+    if I.anyPress("back") or I.anyPress("shoot") then gState = "MENU" end
+  elseif L == "browse" then
+    local n = #NETL.hosts
+    if I.anyPress("up") then NETL.sel = max(0, NETL.sel - 1) end
+    if I.anyPress("down") then NETL.sel = min(max(0, n - 1), NETL.sel + 1) end
+    if n > 0 and (I.anyPress("jump") or I.anyPress("start")) then
+      A.play("menuConfirm")
+      local h = NETL.hosts[min(NETL.sel + 1, n)]
+      if h.relay then NETL.relayIP = h.ip; NETL.lobby = "online"; NETL.sel = 0; NETL.status = ""
+      else netlanJoin(h.ip) end
+    end
+    if I.anyPress("back") or I.anyPress("shoot") then netlanLeave(); NETL.lobby = "choose" end
+  elseif L == "online" then
+    if I.anyPress("up") then NETL.sel = max(0, NETL.sel - 1); A.play("menuMove") end
+    if I.anyPress("down") then NETL.sel = min(2, NETL.sel + 1); A.play("menuMove") end
+    if I.anyPress("jump") or I.anyPress("start") then
+      A.play("menuConfirm")
+      if NETL.sel == 0 then
+        local c = ""
+        for _ = 1, 4 do local k = rnd(1, #ROOM_CHARS + 1); c = c .. ROOM_CHARS:sub(k, k) end
+        netlanRelay(NETL.relayIP, c, true)
+      elseif NETL.sel == 1 then NETL.lobby = "code"; NETL.codeIdx = { 1, 1, 1, 1 }; NETL.codePos = 1
+      else netlanBrowse() end
+    end
+    if I.anyPress("back") or I.anyPress("shoot") then netlanBrowse() end
+  elseif L == "code" then
+    local ci, cp, nC = NETL.codeIdx, NETL.codePos, #ROOM_CHARS
+    if I.anyPress("up") then ci[cp] = (ci[cp] - 2) % nC + 1; A.play("menuMove") end
+    if I.anyPress("down") then ci[cp] = ci[cp] % nC + 1; A.play("menuMove") end
+    if I.anyPress("left") then NETL.codePos = max(1, cp - 1) end
+    if I.anyPress("right") then NETL.codePos = min(4, cp + 1) end
+    if I.anyPress("jump") then
+      if cp < 4 then NETL.codePos = cp + 1
+      else
+        local c = ""
+        for i = 1, 4 do c = c .. ROOM_CHARS:sub(ci[i], ci[i]) end
+        A.play("menuConfirm"); netlanRelay(NETL.relayIP, c, false)
+      end
+    end
+    if I.anyPress("back") or I.anyPress("shoot") then NETL.lobby = "online"; NETL.sel = 1 end
+  else
+    if I.anyPress("back") or I.anyPress("shoot") then netlanLeave(); NETL.lobby = "choose" end
+  end
+end
+
+local function lobbySlab(i, label, sel, y)
+  local bw, bh, sk = 300, 28, 10
+  local bx = SW / 2 - bw / 2
+  local slab = { bx + sk, y, bx + bw + sk, y, bx + bw - sk, y + bh, bx - sk, y + bh }
+  G.poly(sel and "#e0348e" or "#08001a", slab, sel and 1 or .8)
+  G.spoly("#29f3ff", slab, sel and 2 or 1, sel and 1 or .55)
+  G.text(label, SW / 2, y + bh / 2 + 7, "center", F("vt", 22), sel and "#ffffff" or "#7fe9ff")
+end
+
+function dLanLobby()
+  G.vgrad(0, 0, SW, SH, { { 0, "#04010f" }, { .55, "#170533" }, { 1, "#3a0b4e" } })
+  for _, s in ipairs(stars) do G.rect({ 1, 1, 1 }, s.x, s.y, s.s, s.s, .25 + s.b * .6) end
+  local ft = F("orb", 34)
+  G.textStroke("CO-OP LAN", SW / 2, 78, "center", ft, "#ff2f8e", 3)
+  G.gradBegin({ { 0, "#ffffff" }, { .45, "#9df4ff" }, { .5, "#2a1a6a" }, { .55, "#ff6ad5" }, { 1, "#ffffff" } }, 50, 80)
+  G.text("CO-OP LAN", SW / 2, 78, "center", ft, { 1, 1, 1 })
+  G.gradEnd()
+  G.rect("#050012", SW / 2 - 230, 100, 460, 280, .85)
+  G.srect("#ff2f8e", SW / 2 - 229.5, 100.5, 459, 279, 1, .6)
+  G.rect("#ff2f8e", SW / 2 - 230, 100, 460, 2)
+  local f16, f18 = F("vt", 16), F("vt", 18)
+  local L = NETL.lobby
+  if L == "choose" then
+    for i, lab in ipairs({ "CRIAR JOGO", "PROCURAR JOGO", "VOLTAR" }) do lobbySlab(i, lab, NETL.sel == i - 1, 140 + (i - 1) * 44) end
+    G.text("As duas consolas têm de estar na mesma rede Wi-Fi.", SW / 2, 300, "center", f16, "#8a7aa8")
+  elseif L == "browse" then
+    G.text("JOGOS NA REDE", SW / 2, 136, "center", f18, "#7fe9ff")
+    if #NETL.hosts == 0 then
+      G.text(NETL.status, SW / 2, 200, "center", f18, gFrame % 40 < 26 and "#ff6ad5" or "#c0127a")
+    else
+      for i, h in ipairs(NETL.hosts) do lobbySlab(i, h.name, NETL.sel == i - 1, 150 + (i - 1) * 38) end
+    end
+    G.text("A entrar  ·  B voltar", SW / 2, 350, "center", f16, "#8a7aa8")
+  elseif L == "online" then
+    G.text("ONLINE · RELAY " .. (NETL.relayIP or ""), SW / 2, 132, "center", f18, "#7fe9ff")
+    for i, lab in ipairs({ "CRIAR SALA", "ENTRAR COM CÓDIGO", "VOLTAR" }) do lobbySlab(i, lab, NETL.sel == i - 1, 150 + (i - 1) * 44) end
+    G.text("Joga com quem estiver no browser ou noutra consola.", SW / 2, 300, "center", f16, "#8a7aa8")
+    if NETL.status ~= "" then G.text(NETL.status, SW / 2, 325, "center", f16, "#ff4040") end
+  elseif L == "code" then
+    G.text("CÓDIGO DA SALA", SW / 2, 150, "center", f18, "#7fe9ff")
+    for i = 1, 4 do
+      local x, sel = SW / 2 - 90 + (i - 1) * 48, i == NETL.codePos
+      G.rect("#141030", x, 170, 40, 52)
+      G.srect(sel and "#ffe95a" or "#29f3ff", x + .5, 170.5, 39, 51, sel and 2 or 1)
+      local k = NETL.codeIdx[i]
+      G.text(ROOM_CHARS:sub(k, k), x + 20, 212, "center", F("vt", 40), (sel and gFrame % 30 < 20) and "#ffffff" or "#ffe95a")
+    end
+    G.text("cima/baixo letra  ·  A seguinte  ·  B voltar", SW / 2, 260, "center", f16, "#8a7aa8")
+  else
+    local online = NETL.transport == "relay"
+    G.text(NETL.mode == "host" and (online and "A TUA SALA" or "ESTA CONSOLA É O ANFITRIÃO") or (online and "SALA" or "A LIGAR"), SW / 2, 150, "center", f18, "#7fe9ff")
+    if online then G.text(NETL.code or "", SW / 2, 210, "center", F("vt", 64), "#ffe95a")
+    elseif NETL.mode == "host" then G.text(NETL.ip, SW / 2, 205, "center", F("vt", 48), "#ffe95a") end
+    G.text(NETL.status, SW / 2, 250, "center", f18, gFrame % 40 < 26 and "#ff6ad5" or "#c0127a")
+    G.text("B cancela", SW / 2, 350, "center", f16, "#8a7aa8")
+  end
+  G.text("No LAN cada jogador usa o seu comando (ou as teclas do P1).", SW / 2, SH - 22, "center", F("vt", 14), "#6a6890")
+end
+
+function dNetBadge()
+  if not NETL.mode or gState == "LOBBY" or not NETL.started then return end
+  local f = F("vt", 14)
+  G.rect({ 0, 0, 0 }, SW - 200, SH - 24, 190, 16, .55)
+  G.text("* " .. (NETL.transport == "relay" and ("ONLINE · " .. (NETL.code or "")) or "LAN") .. " · " .. (NETL.mode == "host" and "ANFITRIÃO" or "CONVIDADO"), SW - 14, SH - 12, "right", f, NETL.peer and "#3cffaa" or "#ff4040")
+  if NETL.lost then
+    G.rect({ 0, 0, 0 }, 0, SH / 2 - 34, SW, 68, .75)
+    G.text(NETL.mode == "host" and "O 2.º JOGADOR SAIU" or "LIGAÇÃO PERDIDA", SW / 2, SH / 2, "center", F("vt", 26), "#ff4040")
+    G.text(NETL.mode == "host" and "Podes continuar sozinho  ·  Start volta ao menu" or "Start volta ao menu", SW / 2, SH / 2 + 22, "center", f, "#dddddd")
   end
 end

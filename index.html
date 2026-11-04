@@ -23,6 +23,7 @@ canvas{ display:block; }
 </head>
 <body>
 <div id="crt-wrap"><canvas id="game"></canvas></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // ═══════════════════════════════════════════════════════════
 //  CRASHLANDERS  v0.9
@@ -126,6 +127,7 @@ function playHarm(freq,harmonics,vol,t,dur){
 
 function schedMusic(){
   if(!musicPlaying||!AC) return;
+  NET.inMusic=true;
   while(musicNextTime<AC.currentTime+LOOK){
     const step=musicStep%64, t=musicNextTime;
     const sec=Math.floor(step/16);  // which section (0-3)
@@ -164,6 +166,7 @@ function schedMusic(){
 
     musicStep++; musicNextTime+=S16;
   }
+  NET.inMusic=false;
   musicTimer=setTimeout(schedMusic,80);
 }
 function startMenuMusic(){
@@ -258,6 +261,11 @@ function sndMenuConfirm(){ if(!AC)return; tone(N.G4,'square',.08,.001,.01,1,.02,
 function sndPara(){        if(!AC)return; nz(.05,.16,null,600,'lowpass'); }
 function sndLaser(){       if(!AC)return; sweep(2200,180,'square',.09,.1); nz(.04,.06,null,1400,'bandpass'); }
 function sndThruster(vol){ if(!AC)return; nz(vol||.05,.18,null,70,'lowpass'); }
+function sndBossShoot(){ if(!AC)return; nz(.08,.04,null,600); sweep(220,120,'square',.07,.06); }
+function sndBossJump(){  if(!AC)return; sweep(60,180,'sawtooth',.14,.18); }
+function sndSlam(){      if(!AC)return; sweep(400,60,'sawtooth',.12,.25); }
+function sndCharge(){    if(!AC)return; sweep(120,900,'square',.05,.55); }
+function sndPickup(){    if(!AC)return; sweep(N.C4,N.G4,'triangle',.08,.12); }
 let lvl={
   ground:'#1c1030', groundTop:'#4a2060', groundAcc:'#7040a0',
   dust:'#6a4880', dustT:'#9060b0',
@@ -265,8 +273,8 @@ let lvl={
   bossMain:'#cc1818', bossDark:'#5a0808', bossAcc:'#ff4040', bossEye:'#ffcc00',
   groundHue:260, bossHue:0,
 };
-function randomLvlPalette(){
-  const gh=rnd(0,360), bh=(gh+rnd(120,240))%360;
+function randomLvlPalette(){ const gh=rnd(0,360); setLvlHues(gh,(gh+rnd(120,240))%360); }
+function setLvlHues(gh,bh){
   lvl.groundHue=gh; lvl.bossHue=bh;
   lvl.ground=hsl(gh,40,12); lvl.groundTop=hsl(gh,60,32); lvl.groundAcc=hsl(gh,70,48);
   lvl.dust=hsl(gh,32,28); lvl.dustT=hsl(gh,40,42);
@@ -300,11 +308,11 @@ function genRandomPlatforms(){
   for(let i=0;i<count;i++) add(rnd(2,MW-8),rnd(5,MH-5),rnd(3,9));
   for(const [a,b] of [[2,8],[MW-10,MW-2]]) for(let r=0;r<3;r++) add(rnd(a,b),rnd(6,MH-4),rnd(3,6));
 }
-function setTile(tx,ty,v,kind=0){ if(tx<0||tx>=MW||ty<0||ty>=MH)return; map[ty][tx]=v; tileHP[ty][tx]=v?TILE_MAX_HP:0; tileKind[ty][tx]=v?kind:0; }
+function setTile(tx,ty,v,kind=0){ if(tx<0||tx>=MW||ty<0||ty>=MH)return; NET.mapDirty=true; map[ty][tx]=v; tileHP[ty][tx]=v?TILE_MAX_HP:0; tileKind[ty][tx]=v?kind:0; }
 function damageTile(tx,ty){
   if(tx<=0||tx>=MW-1||ty<=0||ty>=MH-2) return;
   if(!map[ty][tx]) return;
-  tileHP[ty][tx]--;
+  tileHP[ty][tx]--; NET.mapDirty=true;
   const px=tx*TW+TW/2, py=ty*TH+TH/2;
   if(tileHP[ty][tx]<=0){
     map[ty][tx]=0; tileHP[ty][tx]=0; tileKind[ty][tx]=0;
@@ -417,6 +425,7 @@ const WEAPON_NAMES=['Pistola','Pistola+','Blaster','Blaster+','Canhão','Canhão
 const LS_KEY='crashlanders_v1';
 
 function saveToLS(){
+  if(NET.mode) return;
   try{
     localStorage.setItem(LS_KEY, JSON.stringify({
       persist, levelNum, numPlayers
@@ -450,7 +459,7 @@ function initPlayers(sx,sy){
   for(let i=0;i<numPlayers;i++){
     const ps=persist[i];
     const p=new Body(sx+i*22,sy,PW,PH);
-    p.id=i; p.col=PCOLS[i]; p.ctrl=CTRL[i];
+    p.id=i; p.col=PCOLS[i]; p.ctrl=CTRL[i]; p.remote=NET.mode==='host'&&i===1;
     p.hp=PHP; p.maxHP=PHP;
     // Aim = elevation relative to facing (−π/2 up … +π/2 down); facing follows movement
     p.facing=i===0?1:-1; p.aimElev=0; p.aimAngle=i===0?0:Math.PI;
@@ -486,7 +495,7 @@ function resetPersist(){
   ];
   levelNum=1;
   hasSaveGame=false;
-  clearLS();
+  if(!NET.mode) clearLS();
 }
 
 // ── BOSS ─────────────────────────────────────────────────
@@ -628,7 +637,7 @@ function spawnDrop(x,y,type='HP'){
 }
 const dropCol=t=>t==='COIN'?P.coin:t==='DMGX2'?P.dmgx:P.hpD;
 function applyDrop(p,t){
-  if(t==='HP')    { p.hp=Math.min(p.maxHP,p.hp+40); sweep(N.C4,N.G4,'triangle',.08,.12); }
+  if(t==='HP')    { p.hp=Math.min(p.maxHP,p.hp+40); sndPickup(); }
   if(t==='COIN')  { p.coins+=5; sndCoin(); }
   if(t==='DMGX2') { p.dmgMult=2; sndRevive(); }
 }
@@ -780,6 +789,283 @@ function initLevel(firstTime=false){
 }
 
 // ═══════════════════════════════════════════════════════
+//  ONLINE CO-OP — host-authoritative over Supabase Realtime broadcast.
+//  The host simulates everything; the guest only sends its buttons and
+//  draws the snapshots the host broadcasts (~30/s), plus mirrored FX/sounds.
+// ═══════════════════════════════════════════════════════
+const NET={mode:null,ch:null,code:'',peer:false,started:false,status:'',lost:false,
+  remote:{},remotePrev:{},events:[],mapDirty:true,inMusic:false,
+  lastIn:'',lastInF:0,lastSnapT:0,lobby:'choose',sel:0,typed:'',err:''};
+const NET_ACTIONS=['left','right','aimUp','aimDown','jump','shoot','b1','b2','b3','b4'];
+const ROOM_CHARS='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+let sbClient=null;
+function sbc(){
+  if(!window.supabase) return null;
+  if(!sbClient) sbClient=window.supabase.createClient(SB_URL,SB_KEY,{realtime:{params:{eventsPerSecond:60}}});
+  return sbClient;
+}
+// Player input: local keys, or the guest's buttons for the remote player on the host
+function pin(p,a){ return p.remote?!!NET.remote[a]:kd(p.ctrl[a]); }
+function pjp(p,a){
+  if(p.remote) return !!NET.remote[a]&&!NET.remotePrev[a];
+  const c=p.ctrl[a]; return Array.isArray(c)?c.some(jp):jp(c);
+}
+
+function openLobby(){ Object.assign(NET,{lobby:'choose',sel:0,typed:'',err:''}); gState='LOBBY'; }
+function netJoin(code,asHost){
+  const sb=sbc();
+  if(!sb){ NET.err='Sem ligação ao servidor (Supabase não carregou)'; return; }
+  netLeave();
+  Object.assign(NET,{mode:asHost?'host':'guest',code,peer:false,started:false,lost:false,remote:{},remotePrev:{},
+    events:[],mapDirty:true,status:'A ligar…',lobby:'wait',err:''});
+  if(!asHost){ initLevel(true); gState='LOBBY'; }
+  const me=NET.mode+'-'+Math.random().toString(36).slice(2,8);
+  const ch=sb.channel('crashlanders-'+code,{config:{broadcast:{self:false,ack:false},presence:{key:me}}});
+  ch.on('broadcast',{event:'in'},({payload})=>{ if(NET.mode==='host') NET.remote=payload.k||{}; })
+    .on('broadcast',{event:'snap'},({payload})=>{ if(NET.mode==='guest') netApplySnap(payload); })
+    .on('presence',{event:'sync'},()=>{
+      if(!NET.mode) return;
+      const other=Object.keys(ch.presenceState()).some(k=>!k.startsWith(NET.mode+'-'));
+      if(other&&!NET.peer){ NET.peer=true; NET.lost=false; netPeerJoined(); }
+      else if(!other&&NET.peer){ NET.peer=false; NET.remote={}; if(NET.started) NET.lost=true; }
+    })
+    .subscribe(async st=>{
+      if(st==='SUBSCRIBED'){ await ch.track({at:Date.now()}); if(!NET.peer) NET.status=asHost?'À espera do 2.º jogador…':'À espera do anfitrião…'; }
+      else if(st==='CHANNEL_ERROR'||st==='TIMED_OUT'){ NET.status='Erro de ligação ('+st+')'; }
+    });
+  NET.ch=ch;
+}
+function netLeave(){
+  if(NET.ch){ try{ NET.ch.untrack(); sbc().removeChannel(NET.ch); }catch(e){} }
+  Object.assign(NET,{ch:null,mode:null,peer:false,started:false,lost:false,remote:{},remotePrev:{},events:[]});
+  for(const p of players) p.remote=false;
+}
+function netPeerJoined(){
+  if(NET.mode==='host'){
+    // fresh co-op run; the local single-player save is left untouched
+    NET.started=true; numPlayers=2; levelNum=1;
+    persist=[{weaponLvl:0,coins:0,fireRate:false,doubleJump:false,parachute:false},{weaponLvl:0,coins:0,fireRate:false,doubleJump:false,parachute:false}];
+    initLevel(true); startCin();
+  } else NET.status='Ligado! À espera do jogo…';
+}
+
+// ── Host → guest snapshot ──
+const r2=v=>typeof v==='number'?Math.round(v*100)/100:v;
+function pack(o,keys){ const r={}; for(const k of keys) r[k]=r2(o[k]); return r; }
+const NET_PK=['x','y','vx','vy','hp','maxHP','facing','aimAngle','iframes','onGround','coins','weaponLvl','fireRate','doubleJump','parachute','dmgMult','airJumps','reviveTimer','jh','sh','shootCD','boarded'];
+const NET_BK=['x','y','vx','vy','hp','facing','state','burstState','burstWindup','burstTimer','flash','laserT','laserAng','mouthT','rising','hitCounter','dmgDropped','onGround','name','legs','arms','eyes'];
+function netEncodeMap(){
+  let s=''; for(let y=0;y<MH;y++) for(let x=0;x<MW;x++) s+=map[y][x]?String.fromCharCode(65+tileHP[y][x]*2+tileKind[y][x]):'.';
+  return s;
+}
+function netDecodeMap(s){
+  let i=0;
+  for(let y=0;y<MH;y++) for(let x=0;x<MW;x++){
+    const c=s.charCodeAt(i++);
+    if(c===46){ map[y][x]=0; tileHP[y][x]=0; tileKind[y][x]=0; }
+    else { const v=c-65; map[y][x]=1; tileHP[y][x]=v>>1; tileKind[y][x]=v&1; }
+  }
+}
+function netSnap(){
+  const s={src:'web',g:gState,f:gFrame,lv:levelNum,np:numPlayers,sh:shake,ct:cinT,gh:lvl.groundHue,bh:lvl.bossHue,
+    pl:players.map(p=>pack(p,NET_PK)),
+    pb:pBullets.map(b=>pack(b,['x','y','vx','vy','pid'])),
+    bb:bBullets.map(b=>pack(b,['x','y','vx','vy','r','burst'])),
+    dr:drops.map(d=>pack(d,['x','y','type','bob'])),
+    ev:NET.events};
+  NET.events=[];
+  if(bossSpawned&&boss){ s.bo=pack(boss,NET_BK); s.bo.pid=BOSS_ORDER.map(k=>boss.parts[k].id); }
+  if(gState==='CIN_SPACE'||gState==='CIN_ORBIT'||gState==='CIN_CRASH'){
+    s.cs=cs; s.cshots=cShots; s.planet=planet; s.crashDone=crashDone;
+    s.debris=debris.map(d=>pack(d,['x','y','w','h','angle','t','landed']));
+  }
+  if(gState==='EXTRACT'&&extractShip){ s.es=extractShip; s.et=extractTimer; }
+  if(gState==='WARP'){ s.wt=warpTimer; s.st=storeTimer; }
+  if(NET.mapDirty||gFrame%60===0){ s.map=netEncodeMap(); NET.mapDirty=false; }
+  if(gFrame%6===0) s.dust=Array.from(dustPiles,v=>Math.round(v));
+  return s;
+}
+function netHostTick(){
+  if(!NET.ch||!NET.started){ NET.events=[]; return; }
+  if(gState==='PLAY'&&Object.keys(NET.remote).length) anyMoved=true;
+  NET.remotePrev={...NET.remote};
+  if(NET.peer&&gFrame%2===0) NET.ch.send({type:'broadcast',event:'snap',payload:netSnap()});
+  if(NET.lost&&jp('Enter')){ netLeave(); init(); }
+}
+
+// ── Guest side ──
+function netApplySnap(s){
+  NET.started=true; NET.lastSnapT=performance.now();
+  gState=s.g; levelNum=s.lv; numPlayers=s.np; cinT=s.ct; gFrame=s.f; shake=Math.max(shake,s.sh);
+  if(lvl.groundHue!==s.gh||lvl.bossHue!==s.bh) setLvlHues(s.gh,s.bh);
+  s.pl.forEach((q,i)=>{
+    let p=players[i];
+    if(!p){ p=new Body(q.x,q.y,PW,PH); p.id=i; p.col=PCOLS[i]; p.ctrl=CTRL[i]; p.kbVx=0; p.aimElev=0; players[i]=p; }
+    Object.assign(p,q);
+  });
+  players.length=s.pl.length;
+  pBullets=s.pb; bBullets=s.bb; drops=s.dr;
+  if(s.bo){
+    if(!boss) boss=new Body(s.bo.x,s.bo.y,BW,BH);
+    Object.assign(boss,s.bo); boss.parts={};
+    BOSS_ORDER.forEach((k,i)=>boss.parts[k]=BOSS_PARTS[k].find(p=>p.id===s.bo.pid[i]));
+    bossSpawned=true; if(musicPlaying) stopMusic();
+  } else { boss=null; bossSpawned=false; }
+  if(s.cs){ cs=s.cs; cShots=s.cshots; planet=s.planet; debris=s.debris; crashDone=s.crashDone; }
+  if(s.es){ extractShip=s.es; extractTimer=s.et; }
+  if(s.wt!==undefined){ warpTimer=s.wt; storeTimer=s.st; }
+  if(s.map) netDecodeMap(s.map);
+  if(s.dust) for(let i=0;i<MW;i++) dustPiles[i]=s.dust[i];
+  for(const e of s.ev||[]){ if(e[0]==='p'){ if(s.src==='love') netPlayNamed(e[1]); } else netPlayEvent(e); }
+}
+function netGuestUpdate(){
+  const k={}; for(const a of NET_ACTIONS) if(kd(CTRL[0][a])) k[a]=1;
+  const sig=Object.keys(k).join(',');
+  if(NET.ch&&(sig!==NET.lastIn||gFrame-NET.lastInF>15)){
+    NET.ch.send({type:'broadcast',event:'in',payload:{k}}); NET.lastIn=sig; NET.lastInF=gFrame;
+  }
+  for(const b of pBullets){ b.x+=b.vx; b.y+=b.vy; }      // dead-reckon between snapshots
+  for(const b of bBullets){ b.x+=b.vx; b.y+=b.vy; }
+  for(const d of drops) d.bob+=.08;
+  if(NET.started&&performance.now()-NET.lastSnapT>5000) NET.lost=true;
+  if(jp('Escape')||(NET.lost&&jp('Enter'))){ netLeave(); stopMusic(); init(); }
+}
+
+// ── Mirror particles and sounds made by the host simulation ──
+const NET_ORIG={fx, tone, sweep, nz};
+const NET_TI={tone:8,sweep:5,nz:2};          // index of the absolute-time argument
+fx=function(...a){
+  if(NET.mode==='host'&&NET.started) NET.events.push(['f',...a.map(v=>typeof v==='number'?Math.round(v*10)/10:v)]);
+  return NET_ORIG.fx(...a);
+};
+for(const name of ['tone','sweep','nz']){
+  window[name]=function(...a){
+    if(NET.mode==='host'&&NET.started&&!NET.inMusic&&AC){
+      const b=a.slice(), ti=NET_TI[name]; b[ti]=b[ti]?b[ti]-AC.currentTime:0;
+      NET.events.push(['s',name,...b]);
+    }
+    return NET_ORIG[name].apply(null,a);
+  };
+}
+// Named sounds: the web host emits them next to the raw synth calls so LÖVE guests
+// (which can't replay raw Web Audio) still hear everything; web guests play them only
+// when the host is a LÖVE console.
+const SND_NAME={sndShoot:'shoot',sndLand:'land',sndHit:'hit',sndBossHit:'bossHit',sndCoin:'coin',sndExplode:'explode',
+  sndBurst:'burst',sndRevive:'revive',sndLevelEnd:'levelEnd',sndDeath:'death',sndPara:'para',sndLaser:'laser',
+  sndThruster:'thruster',sndBossShoot:'bossShoot',sndBossJump:'bossJump',sndSlam:'slam',sndCharge:'charge',sndPickup:'pickup',sndJump:null};
+const SND_ORIG={};
+for(const fn in SND_NAME){
+  SND_ORIG[fn]=window[fn];
+  window[fn]=function(...a){
+    if(NET.mode==='host'&&NET.started) NET.events.push(['p',fn==='sndJump'?(a[0]?'jumpAir':'jump'):SND_NAME[fn]]);
+    return SND_ORIG[fn].apply(null,a);
+  };
+}
+function netPlayNamed(name){
+  if(name==='jump') return SND_ORIG.sndJump(false);
+  if(name==='jumpAir') return SND_ORIG.sndJump(true);
+  for(const fn in SND_NAME) if(SND_NAME[fn]===name) return SND_ORIG[fn]();
+}
+function netPlayEvent(e){
+  if(e[0]==='f') NET_ORIG.fx(...e.slice(1));
+  else if(e[0]==='s'&&AC){
+    const name=e[1], a=e.slice(2), ti=NET_TI[name];
+    a[ti]=AC.currentTime+Math.max(0,a[ti]||0);
+    NET_ORIG[name](...a.map(v=>v===null?undefined:v));
+  }
+}
+
+// ── Lobby ──
+function uLobby(){
+  startMenuMusic();
+  if(NET.lobby==='choose'){
+    if(jp('ArrowUp'))  { NET.sel=Math.max(0,NET.sel-1); sndMenuMove(); }
+    if(jp('ArrowDown')){ NET.sel=Math.min(2,NET.sel+1); sndMenuMove(); }
+    if(jp('Enter')||jp('Space')){
+      sndMenuConfirm();
+      if(NET.sel===0){ let c=''; for(let i=0;i<4;i++) c+=ROOM_CHARS[rnd(0,ROOM_CHARS.length)]; netJoin(c,true); }
+      else if(NET.sel===1){ NET.lobby='code'; NET.typed=''; NET.err=''; }
+      else gState='MENU';
+    }
+    if(jp('Escape')) gState='MENU';
+  } else if(NET.lobby==='code'){
+    for(const c of justPressed){
+      if((c.startsWith('Key')||c.startsWith('Digit'))&&NET.typed.length<4) NET.typed+=c.slice(c.startsWith('Key')?3:5);
+      else if(c==='Backspace') NET.typed=NET.typed.slice(0,-1);
+      else if(c==='Enter'&&NET.typed.length===4){ sndMenuConfirm(); netJoin(NET.typed,false); }
+      else if(c==='Escape') NET.lobby='choose';
+    }
+  } else if(jp('Escape')){ netLeave(); NET.lobby='choose'; }
+}
+
+function dLobby(){
+  const t=gFrame;
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#04010f'); g.addColorStop(.55,'#170533'); g.addColorStop(1,'#3a0b4e');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  for(const s of stars){ ctx.globalAlpha=.25+s.b*.6; ctx.fillStyle='#fff'; ctx.fillRect(s.x,s.y,s.s,s.s); }
+  ctx.globalAlpha=1; ctx.textAlign='center';
+  ctx.font='900 34px Orbitron, monospace'; ctx.lineJoin='round';
+  ctx.strokeStyle='#ff2f8e'; ctx.lineWidth=3; ctx.strokeText('CO-OP ONLINE',W/2,78);
+  const cg=ctx.createLinearGradient(0,50,0,80);
+  cg.addColorStop(0,'#ffffff'); cg.addColorStop(.45,'#9df4ff'); cg.addColorStop(.5,'#2a1a6a'); cg.addColorStop(.55,'#ff6ad5'); cg.addColorStop(1,'#ffffff');
+  ctx.fillStyle=cg; ctx.fillText('CO-OP ONLINE',W/2,78);
+  ctx.fillStyle='rgba(5,0,18,.85)'; ctx.fillRect(W/2-220,100,440,270);
+  ctx.strokeStyle='rgba(255,47,142,.6)'; ctx.lineWidth=1; ctx.strokeRect(W/2-219.5,100.5,439,269);
+  ctx.fillStyle='#ff2f8e'; ctx.fillRect(W/2-220,100,440,2);
+  if(NET.lobby==='choose'){
+    ['CRIAR SALA','ENTRAR COM CÓDIGO','VOLTAR'].forEach((lab,i)=>{
+      const sel=NET.sel===i, bw=280, bh=28, sk=10, bx=W/2-bw/2, by=150+i*44;
+      ctx.beginPath(); ctx.moveTo(bx+sk,by); ctx.lineTo(bx+bw+sk,by); ctx.lineTo(bx+bw-sk,by+bh); ctx.lineTo(bx-sk,by+bh); ctx.closePath();
+      ctx.fillStyle=sel?'#e0348e':'rgba(8,0,26,.8)'; ctx.fill();
+      ctx.strokeStyle=sel?'#29f3ff':'rgba(41,243,255,.55)'; ctx.lineWidth=sel?2:1; ctx.stroke();
+      ctx.font='22px VT323, monospace'; ctx.fillStyle=sel?'#ffffff':'#7fe9ff'; ctx.fillText(lab,W/2,by+bh/2+7);
+    });
+    ctx.font='16px VT323, monospace'; ctx.fillStyle='#8a7aa8';
+    ctx.fillText('Cria uma sala e partilha o código, ou entra na sala de um amigo.',W/2,300);
+  } else if(NET.lobby==='code'){
+    ctx.font='18px VT323, monospace'; ctx.fillStyle='#7fe9ff'; ctx.fillText('CÓDIGO DA SALA',W/2,150);
+    for(let i=0;i<4;i++){
+      const x=W/2-90+i*48, cur=i===NET.typed.length&&t%30<15;
+      ctx.fillStyle='#141030'; ctx.fillRect(x,170,40,52);
+      ctx.strokeStyle=cur?'#ffe95a':'#29f3ff'; ctx.lineWidth=cur?2:1; ctx.strokeRect(x+.5,170.5,39,51);
+      ctx.font='40px VT323, monospace'; ctx.fillStyle='#ffe95a'; ctx.fillText(NET.typed[i]||'',x+20,210);
+    }
+    ctx.font='16px VT323, monospace'; ctx.fillStyle='#8a7aa8';
+    ctx.fillText('escreve o código  ·  Enter liga  ·  Esc volta',W/2,260);
+  } else {
+    ctx.font='18px VT323, monospace'; ctx.fillStyle='#7fe9ff';
+    ctx.fillText(NET.mode==='host'?'A TUA SALA':'SALA',W/2,145);
+    ctx.font='64px VT323, monospace'; ctx.fillStyle='#ffe95a'; ctx.fillText(NET.code,W/2,205);
+    ctx.font='18px VT323, monospace'; ctx.fillStyle=t%40<26?'#ff6ad5':'#c0127a'; ctx.fillText(NET.status,W/2,245);
+    ctx.font='16px VT323, monospace'; ctx.fillStyle='#8a7aa8';
+    if(NET.mode==='host') ctx.fillText('Partilha este código com o 2.º jogador  ·  Esc cancela',W/2,280);
+    else ctx.fillText('Esc cancela',W/2,280);
+  }
+  if(NET.err){ ctx.font='16px VT323, monospace'; ctx.fillStyle='#ff4040'; ctx.fillText(NET.err,W/2,340); }
+  ctx.font='14px VT323, monospace'; ctx.fillStyle='#6a6890';
+  ctx.fillText('No online, cada jogador usa as teclas do P1 (setas · AltGr/Shift Dir · Ctrl Dir · Z X C V)',W/2,H-24);
+  ctx.textAlign='left';
+}
+
+// Small status badge + connection-lost banner during an online game
+function dNetOverlay(){
+  if(!NET.mode||gState==='LOBBY') return;
+  ctx.textAlign='right'; ctx.font='14px VT323, monospace';
+  ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(W-196,H-24,186,16);
+  ctx.fillStyle=NET.peer?'#3cffaa':'#ff4040';
+  ctx.fillText(`● ONLINE · ${NET.code} · ${NET.mode==='host'?'ANFITRIÃO':'CONVIDADO'}`,W-14,H-12);
+  if(NET.lost){
+    ctx.fillStyle='rgba(0,0,0,.75)'; ctx.fillRect(0,H/2-34,W,68);
+    ctx.textAlign='center'; ctx.font='26px VT323, monospace'; ctx.fillStyle='#ff4040';
+    ctx.fillText(NET.mode==='host'?'O 2.º JOGADOR SAIU':'LIGAÇÃO PERDIDA',W/2,H/2);
+    ctx.font='16px VT323, monospace'; ctx.fillStyle='#dddddd';
+    ctx.fillText(NET.mode==='host'?'Podes continuar sozinho  ·  Enter volta ao menu':'Enter volta ao menu',W/2,H/2+22);
+  }
+  ctx.textAlign='left';
+}
+
+// ═══════════════════════════════════════════════════════
 //  UPDATE
 // ═══════════════════════════════════════════════════════
 function update(){
@@ -789,7 +1075,9 @@ function update(){
     if(p.life<=0) particles.splice(i,1);
   }
   if(shake>0) shake--;
-  if     (gState==='MENU')      uMenu();
+  if(NET.mode==='guest'&&gState!=='LOBBY'){ netGuestUpdate(); justPressed.clear(); return; }
+  if     (gState==='LOBBY')     uLobby();
+  else if(gState==='MENU')      uMenu();
   else if(gState==='CIN_SPACE') uCinSpace();
   else if(gState==='CIN_ORBIT') uCinOrbit();
   else if(gState==='CIN_PAN')   uCinPan();
@@ -798,16 +1086,18 @@ function update(){
   else if(gState==='EXTRACT')   uExtract();
   else if(gState==='WARP')      uWarp();
   else if(gState==='DEAD')      uDead();
+  if(NET.mode==='host') netHostTick();
   justPressed.clear();
 }
 
 function uMenu(){
   startMenuMusic();
-  const numOpts=hasSaveGame?3:2;
+  const numOpts=hasSaveGame?4:3;
   if(jp('ArrowUp'))   { menuSel=Math.max(0,menuSel-1); sndMenuMove(); }
   if(jp('ArrowDown')) { menuSel=Math.min(numOpts-1,menuSel+1); sndMenuMove(); }
   if(jp('Enter')||jp('Space')||jp('KeyZ')){
     sndMenuConfirm();
+    if(menuSel===numOpts-1){ openLobby(); return; }
     if(hasSaveGame && menuSel===0){
       // Resume saved game — restore palette then go to crash
       const savedLevel=levelNum, savedPlayers=numPlayers;
@@ -816,7 +1106,8 @@ function uMenu(){
       numPlayers=savedPlayers;
     } else {
       // New game — index 0 (no save) or 1/2 (with save) = 1P/2P
-      numPlayers=hasSaveGame?menuSel:menuSel+1;
+      const np=hasSaveGame?menuSel:menuSel+1;
+      resetPersist(); numPlayers=np;
       saveToLS(); startCin();
     }
   }
@@ -1082,22 +1373,22 @@ function uWarp(){
 
 function uStoreBuy(){
   for(const p of players){
-    if(jp(p.ctrl.b1)&&p.coins>=COST_WEAPON&&p.weaponLvl<9){
+    if(pjp(p,'b1')&&p.coins>=COST_WEAPON&&p.weaponLvl<9){
       p.coins-=COST_WEAPON; p.weaponLvl++;
       persist[p.id].weaponLvl=p.weaponLvl; persist[p.id].coins=p.coins;
       fx(W/2,H/2,30,P.gold,6,3);
     }
-    if(jp(p.ctrl.b2)&&p.coins>=COST_FIRE&&!p.fireRate){
+    if(pjp(p,'b2')&&p.coins>=COST_FIRE&&!p.fireRate){
       p.coins-=COST_FIRE; p.fireRate=true;
       persist[p.id].fireRate=true; persist[p.id].coins=p.coins;
       fx(W/2,H/2,30,P.fire,6,3);
     }
-    if(jp(p.ctrl.b3)&&p.coins>=COST_DJUMP&&!p.doubleJump){
+    if(pjp(p,'b3')&&p.coins>=COST_DJUMP&&!p.doubleJump){
       p.coins-=COST_DJUMP; p.doubleJump=true;
       persist[p.id].doubleJump=true; persist[p.id].coins=p.coins;
       fx(W/2,H/2,30,P.djump,6,3);
     }
-    if(jp(p.ctrl.b4)&&p.coins>=COST_PARA&&!p.parachute){
+    if(pjp(p,'b4')&&p.coins>=COST_PARA&&!p.parachute){
       p.coins-=COST_PARA; p.parachute=true;
       persist[p.id].parachute=true; persist[p.id].coins=p.coins;
       fx(W/2,H/2,30,P.para,6,3);
@@ -1185,14 +1476,15 @@ function uDeadPlayer(p){
 
 function uPlayer(p){
   const c=p.ctrl;
-  const L=kd(c.left), R=kd(c.right), shootHeld=kd(c.shoot), jumpHeld=kd(c.jump), downHeld=kd(c.aimDown);
+  const L=pin(p,'left'), R=pin(p,'right'), shootHeld=pin(p,'shoot'), jumpHeld=pin(p,'jump'), downHeld=pin(p,'aimDown');
+  p.jh=jumpHeld; p.sh=shootHeld;
   // Movement (+ decaying knockback so hits actually push you)
   p.vx=(R?PSPD:0)-(L?PSPD:0)+p.kbVx;
   p.kbVx*=.82; if(Math.abs(p.kbVx)<.1) p.kbVx=0;
   // Facing follows movement; holding fire locks it (strafe: retreat while shooting)
   if(!shootHeld){ if(L&&!R) p.facing=-1; else if(R&&!L) p.facing=1; }
   // Up always raises the gun, down always lowers it, whichever way you face
-  if(kd(c.aimUp))  p.aimElev-=.08;
+  if(pin(p,'aimUp')) p.aimElev-=.08;
   if(downHeld)     p.aimElev+=.08;
   p.aimElev=clamp(p.aimElev,-Math.PI/2,Math.PI/2);
   p.aimAngle=p.facing>0?p.aimElev:Math.PI-p.aimElev;
@@ -1291,7 +1583,7 @@ function bossVolley(tgt){
   const ang=Math.atan2(ty-bcy,tx-bcx), half=boss.hp<BMAXHP*.5;
   const das=boss.arms==='canhoes'?(half?[-.5,-.25,0,.25,.5]:[-.28,0,.28]):(half?[-.28,0,.28]:[0]);
   bossFire(bcx,bcy,ang,das,5,boss.arms==='tentaculos');
-  nz(.08,.04,null,600); sweep(220,120,'square',.07,.06);
+  sndBossShoot();
 }
 function bossFire(x,y,ang,das,spd,wave){
   boss.mouthT=Math.max(boss.mouthT,10);
@@ -1363,9 +1655,9 @@ function uBoss(){
       boss.vx=lerp(boss.vx,boss.facing*3.5,.12);
       if(boss.legs==='jatos'){
         // Jets: dive-bomb down onto the floor
-        if(boss.jumpCD<=0&&!boss.slamming){ boss.vy=12; boss.jumpCD=70; boss.slamming=true; sweep(400,60,'sawtooth',.12,.25); }
+        if(boss.jumpCD<=0&&!boss.slamming){ boss.vy=12; boss.jumpCD=70; boss.slamming=true; sndSlam(); }
       } else if(boss.onGround&&boss.jumpCD<=0){
-        boss.vy=boss.legs==='bipede'?-15:-13.5; boss.jumpCD=45; shake=Math.max(shake,5); sweep(60,180,'sawtooth',.14,.18);
+        boss.vy=boss.legs==='bipede'?-15:-13.5; boss.jumpCD=45; shake=Math.max(shake,5); sndBossJump();
       }
     }
     else if(boss.state==='SHOOT'){
@@ -1374,7 +1666,7 @@ function uBoss(){
         if(boss.eyes==='ciclope'){
           boss.laserT=36; boss.laserAng=Math.atan2(pcy-bcy,pcx-bcx); boss.mouthT=36;
           boss.atkCD=boss.hp<BMAXHP*.3?48:66;
-          sweep(120,900,'square',.05,.55);
+          sndCharge();
         } else {
           bossVolley(tgt);
           if(boss.eyes==='gemeos') boss.pendingShot=9;
@@ -1439,7 +1731,7 @@ function uDead(){
     if(jp('KeyS')){ scoreFormActive=true; fetchLeaderboard(); return; }
   }
   if(jp('KeyR')){ resetPersist(); initLevel(false); }
-  if(jp('Escape')||jp('KeyM')){ resetPersist(); stopMusic(); init(); }
+  if(jp('Escape')||jp('KeyM')){ netLeave(); resetPersist(); stopMusic(); init(); }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1457,6 +1749,7 @@ function draw(){
   dStars();
 
   if(gState==='MENU') dMenu();
+  else if(gState==='LOBBY') dLobby();
   else if(gState==='CIN_SPACE') dCinSpace();
   else if(gState==='CIN_ORBIT') dCinOrbit();
   else if(gState==='CIN_PAN'){ ctx.save(); ctx.translate(-camX,0); dMap(); ctx.restore(); dCinBars('SUPERFÍCIE DE KETH-9','ZONA SEGURA: NENHUMA'); }
@@ -1484,6 +1777,7 @@ function draw(){
   }
   ctx.globalAlpha=1;
   if(gState==='DEAD') dDead();
+  dNetOverlay();
   dCRTOverlay();
   dConsole();
   ctx.restore();
@@ -1832,8 +2126,8 @@ function dMenu(){
 
   // ── Buttons: skewed neon slabs ──
   const btnLabels=hasSaveGame
-    ? [`CONTINUAR  ·  NÍV.${levelNum}  ·  ${numPlayers}P`, 'NOVO JOGO  ·  1 JOGADOR', 'NOVO JOGO  ·  2 JOGADORES']
-    : ['1 JOGADOR', '2 JOGADORES'];
+    ? [`CONTINUAR  ·  NÍV.${levelNum}  ·  ${numPlayers}P`, 'NOVO JOGO  ·  1 JOGADOR', 'NOVO JOGO  ·  2 JOGADORES', 'ONLINE  ·  CO-OP']
+    : ['1 JOGADOR', '2 JOGADORES', 'ONLINE  ·  CO-OP'];
   const numOpts=btnLabels.length;
   menuSel=Math.min(menuSel,numOpts-1);
   const bw=300, bh=28, sk=10, top=hasSaveGame?192:204;
@@ -2212,7 +2506,7 @@ function dPlayer(p){
 
   const f=p.facing, ang=p.aimAngle, ghost=p.iframes>0&&gFrame%6<3;
   const pcx=x+PW/2, pcy=y+PH/2-1;
-  const isPara=p.parachute&&kd(p.ctrl.jump)&&p.vy>1.5&&!p.onGround;
+  const isPara=p.parachute&&p.jh&&p.vy>1.5&&!p.onGround;
   ctx.save(); if(ghost) ctx.globalAlpha=.35;
   if(p.onGround){ctx.fillStyle='rgba(0,0,0,.28)';ctx.fillRect(x+1,y+PH,PW-2,2);}
   ctx.fillStyle=p.col.d; ctx.fillRect(x+1,y+5,PW-2,PH-5);
@@ -2237,7 +2531,7 @@ function dPlayer(p){
   ctx.fillStyle=p.col.d; ctx.fillRect(0,-2,10,4);
   ctx.fillStyle=p.dmgMult>1?P.dmgx:P.gun; ctx.fillRect(4,-2,8,4);
   ctx.fillStyle='#505060'; ctx.fillRect(10,-1,3,2);
-  ctx.fillStyle=(kd(p.ctrl.shoot)&&p.shootCD<4)?(p.dmgMult>1?P.dmgx:P.yellow):'#404050'; ctx.fillRect(13,-1,2,2);
+  ctx.fillStyle=(p.sh&&p.shootCD<4)?(p.dmgMult>1?P.dmgx:P.yellow):'#404050'; ctx.fillRect(13,-1,2,2);
   ctx.restore();
   const walk=p.onGround&&Math.abs(p.vx)>.5, lp=Math.floor(gFrame/7)%2;
   ctx.fillStyle=p.col.d;

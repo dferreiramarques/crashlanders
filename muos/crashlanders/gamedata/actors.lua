@@ -20,7 +20,7 @@ P = {
   white = "#ffffff", gray = "#888888", orange = "#ff8020", yellow = "#ffff40",
   gold = "#ffd700", goldD = "#8a5c00",
 }
-local PCOLS = { { m = P.p1, d = P.p1D }, { m = P.p2, d = P.p2D } }
+PCOLS = { { m = P.p1, d = P.p1D }, { m = P.p2, d = P.p2D } }
 PW, PH, PSPD, PJMP, PHP = 10, 16, 3.6, -9.5, 100
 BASE_DMG = 10
 COST_WEAPON, COST_FIRE, COST_DJUMP, COST_PARA = 100, 100, 50, 200
@@ -45,6 +45,7 @@ function initPlayers(sx, sy)
     p.jumpPressed = false
     p.weaponLvl, p.fireRate, p.doubleJump, p.parachute = ps.weaponLvl, ps.fireRate, ps.doubleJump, ps.parachute
     p.dmgMult, p.coins, p.reviveTimer = 1, ps.coins, 0
+    p.remote = NETL ~= nil and NETL.mode == "host" and i == 2   -- LAN guest drives P2
     players[i] = p
   end
 end
@@ -181,6 +182,15 @@ local function bossSprite(g, pal, key)
 end
 
 boss, bossSpawned, bossCountdown, anyMoved = nil, false, 300, false
+function bossPartIds() local t = {}; for i, s in ipairs(BOSS_ORDER) do t[i] = boss.parts[s].id end; return t end
+function bossPartsFromIds(ids)
+  local parts = {}
+  for i, s in ipairs(BOSS_ORDER) do
+    for _, p in ipairs(BOSS_PARTS[s]) do if p.id == ids[i] then parts[s] = p end end
+    parts[s] = parts[s] or BOSS_PARTS[s][1]
+  end
+  return parts
+end
 
 function spawnBoss()
   A.stopMusic()
@@ -220,12 +230,13 @@ local function bossContactMul() return boss and boss.arms == "garras" and 1.5 or
 
 local function uPlayer(p)
   local id = p.id
-  local L, R = I.down(id, "left"), I.down(id, "right")
-  local shootHeld, jumpHeld, downHeld = I.down(id, "shoot"), I.down(id, "jump"), I.down(id, "down")
+  local L, R = PIN(p, "left"), PIN(p, "right")
+  local shootHeld, jumpHeld, downHeld = PIN(p, "shoot"), PIN(p, "jump"), PIN(p, "down")
+  p.jh, p.sh = jumpHeld, shootHeld
   p.vx = (R and PSPD or 0) - (L and PSPD or 0) + p.kbVx
   p.kbVx = p.kbVx * .82; if abs(p.kbVx) < .1 then p.kbVx = 0 end
   if not shootHeld then if L and not R then p.facing = -1 elseif R and not L then p.facing = 1 end end
-  if I.down(id, "up") then p.aimElev = p.aimElev - .08 end
+  if PIN(p, "up") then p.aimElev = p.aimElev - .08 end
   if downHeld then p.aimElev = p.aimElev + .08 end
   p.aimElev = clamp(p.aimElev, -PI / 2, PI / 2)
   p.aimAngle = p.facing > 0 and p.aimElev or PI - p.aimElev
@@ -527,7 +538,7 @@ function dPlayer(p)
   local f, ang = p.facing, p.aimAngle
   local ghost = p.iframes > 0 and gFrame % 6 < 3
   local pcx, pcy = x + PW / 2, y + PH / 2 - 1
-  local isPara = p.parachute and I.down(p.id, "jump") and p.vy > 1.5 and not p.onGround
+  local isPara = p.parachute and p.jh and p.vy > 1.5 and not p.onGround
   local ga = ghost and .35 or 1
   if p.onGround then G.rect({ 0, 0, 0 }, x + 1, y + PH, PW - 2, 2, .28 * ga) end
   G.rect(p.col.d, x + 1, y + 5, PW - 2, PH - 5, ga)
@@ -548,7 +559,7 @@ function dPlayer(p)
   G.rect(p.col.d, 0, -2, 10, 4, ga)
   G.rect(p.dmgMult > 1 and P.dmgx or P.gun, 4, -2, 8, 4, ga)
   G.rect("#505060", 10, -1, 3, 2, ga)
-  G.rect((I.down(p.id, "shoot") and p.shootCD < 4) and (p.dmgMult > 1 and P.dmgx or P.yellow) or "#404050", 13, -1, 2, 2, ga)
+  G.rect((p.sh and p.shootCD < 4) and (p.dmgMult > 1 and P.dmgx or P.yellow) or "#404050", 13, -1, 2, 2, ga)
   lg.pop()
   local walk, lp = p.onGround and abs(p.vx) > .5, floor(gFrame / 7) % 2 == 1
   if walk then

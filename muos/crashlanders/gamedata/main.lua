@@ -10,6 +10,7 @@ local I = require "input"
 require "world"
 require "actors"
 require "scenes"
+require "netlan"            -- after world/actors: wraps fx and A.play
 local lg = love.graphics
 
 local canvas, vignette
@@ -48,7 +49,10 @@ local function update()
   updateParticles()
   if shake > 0 then shake = shake - 1 end
   if gState == "PLAY" and I.anyPressed then anyMoved = true end
-  if gState == "MENU" then uMenu()
+  netlanPoll()
+  if NETL.mode == "guest" and gState ~= "LOBBY" then netlanGuestUpdate(); return end
+  if gState == "LOBBY" then uLanLobby()
+  elseif gState == "MENU" then uMenu()
   elseif gState == "CIN_SPACE" then uCinSpace()
   elseif gState == "CIN_ORBIT" then uCinOrbit()
   elseif gState == "CIN_CRASH" then uCinCrash()
@@ -56,14 +60,22 @@ local function update()
   elseif gState == "EXTRACT" then uExtract()
   elseif gState == "WARP" then uWarp()
   elseif gState == "DEAD" then uDead() end
+  if NETL.mode == "host" then netlanHostTick() end
 end
 
 local autotest
 for _, a in ipairs(arg or {}) do if a == "--autotest" then autotest = require "autotest" end end
 if autotest then autotest.tick = function() I.update(); update() end end
+local lantest
+for _, a in ipairs(arg or {}) do
+  if a == "--lanhost" or a == "--languest" then lantest = require "lantest"; lantest.role = a == "--lanhost" and "host" or "guest" end
+  local rr, code = a:match("^%-%-relay(%a+)=(%w+)$")
+  if rr then lantest = require "lantest"; lantest.role = rr; lantest.relay = code; lantest.limit = 150; lantest.hold = 45 end
+end
 
 function love.update(dt)
   if autotest then autotest.update() end
+  if lantest then lantest.update(dt) end
   acc = acc + math.min(dt, .25)
   local n = 0
   while acc >= STEP and n < 5 do
@@ -78,11 +90,12 @@ local function drawGame()
   lg.clear(0, 0, 0, 1)
   lg.push()
   if shake > 0 then lg.translate((love.math.random() - .5) * shake * 1.1, (love.math.random() - .5) * shake * .7) end
-  if gState ~= "MENU" and gState ~= "CIN_SPACE" and gState ~= "CIN_ORBIT" then
+  if gState ~= "MENU" and gState ~= "LOBBY" and gState ~= "CIN_SPACE" and gState ~= "CIN_ORBIT" then
     G.vgrad(0, 0, SW, SH, { { 0, "#060410" }, { 1, "#0d051e" } })
     for _, s in ipairs(stars) do G.rect({ 1, 1, 1 }, s.x, s.y, s.s, s.s, .3 + s.b * .7 * (.8 + .2 * math.sin(gFrame * .04 + s.x))) end
   end
   if gState == "MENU" then dMenu()
+  elseif gState == "LOBBY" then dLanLobby()
   elseif gState == "CIN_SPACE" then dCinSpace()
   elseif gState == "CIN_ORBIT" then dCinOrbit()
   elseif gState == "CIN_CRASH" then dMap(); dDustPiles(); dCrash(); dCinBars("CONTROLO PERDIDO", "IMPACTO IMINENTE!")
@@ -91,6 +104,7 @@ local function drawGame()
   elseif gState == "WARP" then dWarp() end
   drawParticles()
   if gState == "DEAD" then dDead() end
+  dNetBadge()
   lg.pop()
   lg.setColor(1, 1, 1, 1)
   lg.draw(vignette, 0, 0, 0, SW / vignette:getWidth(), SH / vignette:getHeight())

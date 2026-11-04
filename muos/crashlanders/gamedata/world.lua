@@ -82,6 +82,7 @@ end
 
 function setTile(tx, ty, v, kind)
   if tx < 0 or tx >= MW or ty < 0 or ty >= MH then return end
+  mapDirty = true
   map[ty][tx] = v; tileHP[ty][tx] = v == 1 and TILE_MAX_HP or 0; tileKind[ty][tx] = v == 1 and (kind or 0) or 0
 end
 
@@ -89,6 +90,7 @@ function damageTile(tx, ty)
   if tx <= 0 or tx >= MW - 1 or ty <= 0 or ty >= MH - 2 then return end
   if map[ty][tx] ~= 1 then return end
   tileHP[ty][tx] = tileHP[ty][tx] - 1
+  mapDirty = true
   local px, py = tx * TW + TW / 2, ty * TH + TH / 2
   if tileHP[ty][tx] <= 0 then
     map[ty][tx] = 0; tileHP[ty][tx] = 0; tileKind[ty][tx] = 0
