@@ -1,0 +1,24 @@
+{
+  "version": 3,
+  "name": "crashlanders.zip",
+  "items": [
+    "Crashlanders.sh",
+    "crashlanders"
+  ],
+  "items_opt": [],
+  "attr": {
+    "title": "Crashlanders",
+    "porter": ["David Marques"],
+    "desc": "Crash-land on a hostile planet, build cover from your ship's wreckage and take down a randomly assembled alien overlord. 1-2 players.",
+    "desc_md": null,
+    "inst": "Ready to run. Optional: copy the Orbitron, VT323, Mr Dafoe and Share Tech Mono TTFs into crashlanders/gamedata/assets/fonts.",
+    "inst_md": null,
+    "genres": ["action", "platformer"],
+    "image": {},
+    "rtr": true,
+    "exp": false,
+    "runtime": null,
+    "reqs": [],
+    "arch": ["aarch64", "x86_64"]
+  }
+}

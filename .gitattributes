@@ -1,0 +1,4 @@
+# The muOS/PortMaster port must keep LF endings (CRLF = black screen on device)
+*.sh   text eol=lf
+*.lua  text eol=lf
+muos/**/*.json text eol=lf
