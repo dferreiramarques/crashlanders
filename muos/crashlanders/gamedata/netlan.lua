@@ -140,6 +140,7 @@ local function snapshot()
   if bossSpawned and boss then s.bo = pack(boss, BK); s.bo.pid = bossPartIds() end
   if gState == "CIN_SPACE" or gState == "CIN_ORBIT" or gState == "CIN_CRASH" then
     s.cs = cs; s.cshots = cShots; s.planet = planet; s.crashDone = crashDone
+    if nextBossParts then s.nbp = {}; for i, k in ipairs({ "back", "legs", "body", "arms", "head", "eyes", "mouth" }) do s.nbp[i] = nextBossParts[k].id end end
     s.debris = {}
     for i, d in ipairs(debris) do s.debris[i] = pack(d, { "x", "y", "w", "h", "angle", "t", "landed" }) end
   end
@@ -170,6 +171,7 @@ local function applySnap(s)
     if A.musicPlaying() then A.stopMusic() end
   else boss, bossSpawned = nil, false end
   if s.cs then cs, cShots, planet, debris, crashDone = s.cs, s.cshots or {}, s.planet, s.debris or {}, s.crashDone end
+  if s.nbp then nextBossParts = bossPartsFromIds(s.nbp) end
   if s.es then extractShip, extractTimer = s.es, s.et end
   if s.wt then warpTimer, storeTimer = s.wt, s.st end
   if s.map then decodeMap(s.map) end

@@ -79,8 +79,8 @@ Pm.CRUISER = { convex = true,
 Pm.TOWER = mkBox(10, -34, -10, 40, -14, 10)
 
 -- sea-deep, sea, land, highland, ice  (h, s, base lightness)
-function Pm.planetTones(groundHue)
-  local sea = (groundHue + 190) % 360
+function Pm.planetTones(groundHue, bossHue)
+  local sea = bossHue or (groundHue + 190) % 360      -- seas take the boss's colour
   return { { sea, 55, 5 }, { sea, 50, 11 }, { groundHue, 45, 13 }, { (groundHue + 20) % 360, 35, 20 }, { groundHue, 8, 40 } }
 end
 

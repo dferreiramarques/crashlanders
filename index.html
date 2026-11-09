@@ -515,7 +515,7 @@ function spawnBoss(){
   boss.burstTimer=rnd(300,600);
   boss.burstState='NONE'; boss.burstWindup=0;
   boss.flash=0; boss.laserT=0; boss.laserAng=0; boss.pendingShot=0; boss.mouthT=0;
-  boss.parts=rollBossParts();
+  boss.parts=nextBossParts||rollBossParts();
   boss.legs=boss.parts.legs.id; boss.arms=boss.parts.arms.id; boss.eyes=boss.parts.eyes.id;
   boss.name=bossName(boss.parts);
   bossSpawned=true;
@@ -556,6 +556,7 @@ const BNAME_A={carapaca:'KRA',saco:'GLO',blindado:'VOR'};
 const BNAME_B={ciclope:'MOX',gemeos:'ZIK',composto:'THUL'};
 const BNAME_C={bipede:'O ESMAGADOR',aranha:'O RASTEJANTE',jatos:'O FLUTUANTE'};
 const mirrorRow=r=>{ r=(r+'........').slice(0,8); return r+r.slice(0,7).split('').reverse().join(''); };
+let nextBossParts=null;   // this level's boss, rolled at level start (the intro scans it)
 function rollBossParts(){
   const sel={};
   for(const s of BOSS_ORDER){ const a=BOSS_PARTS[s]; sel[s]=a[rnd(0,a.length)]; }
@@ -768,6 +769,7 @@ function init(){
 function initLevel(firstTime=false){
   initBaseMap();
   if(!firstTime) randomLvlPalette();
+  nextBossParts=rollBossParts();
   if(firstTime) genStars();
   pBullets=[]; bBullets=[]; drops=[]; particles=[];
   debris=[]; crashDone=false; crashX=0; crashY=0;
@@ -877,6 +879,7 @@ function netSnap(){
   if(bossSpawned&&boss){ s.bo=pack(boss,NET_BK); s.bo.pid=BOSS_ORDER.map(k=>boss.parts[k].id); }
   if(gState==='CIN_SPACE'||gState==='CIN_ORBIT'||gState==='CIN_CRASH'){
     s.cs=cs; s.cshots=cShots; s.planet=planet; s.crashDone=crashDone;
+    if(nextBossParts) s.nbp=BOSS_ORDER.map(k=>nextBossParts[k].id);
     s.debris=debris.map(d=>pack(d,['x','y','w','h','angle','t','landed']));
   }
   if(gState==='EXTRACT'&&extractShip){ s.es=extractShip; s.et=extractTimer; }
@@ -912,6 +915,7 @@ function netApplySnap(s){
     bossSpawned=true; if(musicPlaying) stopMusic();
   } else { boss=null; bossSpawned=false; }
   if(s.cs){ cs=s.cs; cShots=s.cshots; planet=s.planet; debris=s.debris; crashDone=s.crashDone; }
+  if(s.nbp){ nextBossParts={}; BOSS_ORDER.forEach((k,i)=>nextBossParts[k]=BOSS_PARTS[k].find(p=>p.id===s.nbp[i])||BOSS_PARTS[k][0]); }
   if(s.es){ extractShip=s.es; extractTimer=s.et; }
   if(s.wt!==undefined){ warpTimer=s.wt; storeTimer=s.st; }
   if(s.map) netDecodeMap(s.map);
@@ -2034,7 +2038,7 @@ function subdivSphere(m,levels){
   return {v,f,convex:true,tone};
 }
 const POLY_PLANET=subdivSphere(mkIco(),3);
-const planetTones=()=>{ const sea=(lvl.groundHue+190)%360, land=lvl.groundHue;
+const planetTones=()=>{ const sea=lvl.bossHue, land=lvl.groundHue;   // seas take the boss's colour
   return [[sea,55,5],[sea,50,11],[land,45,13],[(land+20)%360,35,20],[land,8,40]]; };
 
 function neonLine(x0,y0,x1,y1){ ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke(); }
@@ -2276,6 +2280,7 @@ function dCinOrbit(){
   for(const [w,a] of [[18,.08],[9,.16],[3,.45]]){ ctx.globalAlpha=a; ctx.lineWidth=w; ctx.beginPath(); ctx.arc(planet.x,planet.y,planet.r+3,0,Math.PI*2); ctx.stroke(); }
   ctx.globalAlpha=1; ctx.lineWidth=1;
   polyDraw(POLY_PLANET,planet.x,planet.y,planet.r,.35,cinT*.003,.15,0,0,{dist:9,tones:planetTones(),edgeSelf:true,lw:.6,bands:8,lspan:42});
+  dPlanetEyes();
 
   const heat=clamp((cinT-110)/150,0,1);
   const shx=cs.x+20, shy=cs.y+15;
@@ -2288,7 +2293,74 @@ function dCinOrbit(){
   ctx.fillText(`ALT ${String(alt).padStart(3,'0')} KM`,24,58);
   ctx.fillText(`VEL ${(7.4+cinT*.01).toFixed(1)} KM/S`,24,74);
   hudGauge(24,H-64,'TEMP. CASCO',heat,heat>.7?'#ff2f8e':'#ffe95a',heat>.7);
+  if(cinT>100) dBossScan(W-292,42,276,128,cinT-100);
   dCinBars(`PLANETA KETH-${levelNum+8}  ·  CLASSE HOSTIL`,'PROPULSÃO DESTRUÍDA — ENTRADA NA ATMOSFERA');
+}
+
+// ── Foreshadowing: what waits on this planet ─────────────
+const SCAN_TRAITS={legs:{bipede:'SALTOS PESADOS',aranha:'INVESTIDA RÁPIDA',jatos:'VOO E MERGULHO'},
+                   arms:{garras:'GARRAS',canhoes:'CANHÕES',tentaculos:'TENTÁCULOS'},
+                   eyes:{ciclope:'LASER',gemeos:'RAJADA DUPLA',composto:'MIRA PREDITIVA'}};
+const SCAN_GLYPHS='ABCDEFGHJKLMNPQRSTUVWXYZ0123456789#%&?';
+// A pair of eyes in the boss's eye colour, glinting on the planet's night side
+function dPlanetEyes(){
+  if(cinT<70) return;
+  const blink=cinT%140<8, a=clamp((cinT-70)/60,0,1)*(.75+Math.sin(cinT*.09)*.25);
+  const ex=planet.x-planet.r*.28, ey=planet.y-planet.r*.6, gap=planet.r*.035+3;
+  const col=hsl(lvl.bossHue+180,90,72);
+  for(const dx of [-gap,gap]){
+    ctx.globalAlpha=a*.25; ctx.fillStyle=col; ctx.beginPath(); ctx.arc(ex+dx,ey,6,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha=a; ctx.fillRect(ex+dx-2,ey-(blink?0:1.5),4,blink?1:3);
+  }
+  ctx.globalAlpha=1;
+}
+// HUD panel: long-range bio-scan of the level's boss — silhouette with glowing eyes,
+// name decoding letter by letter, then what it does
+function dBossScan(x,y,w,h,t){
+  const parts=nextBossParts; if(!parts) return;
+  const bh=lvl.bossHue, acc=hsl(bh+180,95,60), eye=hsl(bh+180,90,72);
+  const open=clamp(t/12,0,1);
+  ctx.save();
+  ctx.globalAlpha=open;
+  ctx.fillStyle='rgba(5,0,18,.86)'; ctx.fillRect(x,y,w,h);
+  ctx.strokeStyle=acc; ctx.globalAlpha=open*.7; ctx.lineWidth=1; ctx.strokeRect(x+.5,y+.5,w-1,h-1);
+  ctx.globalAlpha=open; ctx.fillStyle=acc; ctx.fillRect(x,y,w,2);
+  ctx.font='14px VT323, monospace'; ctx.textAlign='left';
+  ctx.fillStyle=t%40<28?acc:'#ff2f8e'; ctx.fillText('SINAL BIOLÓGICO · SUPERFÍCIE',x+8,y+15);
+  // silhouette: body in near-black boss tones, eyes and glow cells lit
+  const blink=t%120<6;
+  const g=composeBoss(parts,0,blink,false,-1);
+  const sil={o:hsl(bh,40,5),d:hsl(bh,45,10),m:hsl(bh,45,14),l:hsl(bh,45,19),s:hsl(bh,45,24),
+             a:acc,e:eye,p:'#1a0008',w:hsl(bh,25,28),f:acc};
+  const ids=BOSS_ORDER.map(k=>parts[k].id).join(',');
+  const spr=bossSprite(g,sil,`scan|${ids}|${bh}|${blink?1:0}`);
+  const sx=x+10, sy=y+22, sw=spr.width, sh=spr.height;
+  const rev=Math.floor(clamp((t-8)/90,0,1)*sh);
+  ctx.fillStyle='#0b0418'; ctx.fillRect(sx-2,sy-2,sw+4,sh+4);
+  if(rev>0) ctx.drawImage(spr,0,0,sw,rev,sx,sy,sw,rev);
+  for(let i=0;i<14;i++){                       // static over the part not decoded yet
+    const ny=sy+rev+Math.random()*(sh-rev); if(ny>=sy+sh) continue;
+    ctx.fillStyle=Math.random()<.5?'rgba(255,255,255,.18)':hsl(bh+180,60,40); ctx.fillRect(sx+Math.random()*sw,ny,rnd(2,8),1);
+  }
+  if(rev<sh){ ctx.fillStyle=acc; ctx.fillRect(sx-2,sy+rev,sw+4,1); }
+  // name, decoded letter by letter
+  const name=bossName(parts), n=Math.floor(clamp((t-30)/80,0,1)*name.length);
+  let shown=name.slice(0,n);
+  for(let i=n;i<name.length;i++) shown+=name[i]===' '?' ':SCAN_GLYPHS[rnd(0,SCAN_GLYPHS.length)];
+  const tx=sx+sw+12;
+  ctx.font='17px VT323, monospace'; ctx.fillStyle=n>=name.length?'#ffffff':'#bba8d8';
+  const words=shown.split(' '), line1=words[0], line2=words.slice(1).join(' ');
+  ctx.fillText(line1,tx,y+38); ctx.fillText(line2,tx,y+54);
+  // traits
+  const rows=[['MOBILIDADE',SCAN_TRAITS.legs[parts.legs.id]],['ARMAS',SCAN_TRAITS.arms[parts.arms.id]],['SENSORES',SCAN_TRAITS.eyes[parts.eyes.id]]];
+  ctx.font='14px VT323, monospace';
+  rows.forEach(([k,v],i)=>{
+    if(t<115+i*18) return;
+    ctx.fillStyle='#6a6890'; ctx.fillText(k,tx,y+74+i*14);
+    ctx.fillStyle='#7fe9ff'; ctx.fillText(v,tx+70,y+74+i*14);
+  });
+  if(t>175&&t%30<20){ ctx.fillStyle='#ff4040'; ctx.fillText('AMEAÇA: EXTREMA',tx,y+h-8); }
+  ctx.restore();
 }
 
 // Letterbox bars with teletype captions (used by every cinematic)

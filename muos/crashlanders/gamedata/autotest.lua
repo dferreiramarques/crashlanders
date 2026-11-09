@@ -16,7 +16,7 @@ local plan = {
       cs = { x = -80, y = SH * .44, vx = 3.5, vy = 0, angle = 0, av = 0, scale = .7, exploding = false, explodeT = 0, crashed = false, tumbleAv = 0, tumbleAngle = 0 } end },
   { 200, function() shot("2_space") end },
   { 1, function() while gState == "CIN_SPACE" do T.tick() end end },
-  { 240, function() shot("3_orbit") end },
+  { 240, function() shot("3_orbit"); print("[autotest] scanned boss=" .. bossName(nextBossParts)) end },
   { 1, function() while gState == "CIN_ORBIT" do T.tick() end end },
   { 1, function() while not crashDone do T.tick() end end },
   { 40, function() shot("4_crash_debris") end },

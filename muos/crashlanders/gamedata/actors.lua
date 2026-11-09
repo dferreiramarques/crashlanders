@@ -182,6 +182,24 @@ local function bossSprite(g, pal, key)
 end
 
 boss, bossSpawned, bossCountdown, anyMoved = nil, false, 300, false
+nextBossParts = nil          -- this level's boss, rolled at level start (the intro scans it)
+function rollBossParts()
+  local parts = {}
+  for _, s in ipairs(BOSS_ORDER) do local a = BOSS_PARTS[s]; parts[s] = a[rnd(1, #a + 1)] end
+  return parts
+end
+function bossName(parts) return BNAME_A[parts.body.id] .. "'" .. BNAME_B[parts.eyes.id] .. " " .. BNAME_C[parts.legs.id] end
+-- Silhouette for the intro's bio-scan: near-black body in the boss's hue, glowing eyes
+function bossScanSprite(parts, blink)
+  local bh = lvl.bossHue
+  local acc, eye = U.hsl(bh + 180, 95, 60), U.hsl(bh + 180, 90, 72)
+  local g = composeBoss(parts, 0, blink, false, -1)
+  local pal = { o = U.hsl(bh, 40, 5), d = U.hsl(bh, 45, 10), m = U.hsl(bh, 45, 14), l = U.hsl(bh, 45, 19), s = U.hsl(bh, 45, 24),
+    a = acc, e = eye, p = U.hex("#1a0008"), w = U.hsl(bh, 25, 28), f = acc }
+  local key = "scan|" .. bh .. "|" .. (blink and 1 or 0)
+  for _, s in ipairs(BOSS_ORDER) do key = key .. "|" .. parts[s].id end
+  return bossSprite(g, pal, key)
+end
 function bossPartIds() local t = {}; for i, s in ipairs(BOSS_ORDER) do t[i] = boss.parts[s].id end; return t end
 function bossPartsFromIds(ids)
   local parts = {}
@@ -204,10 +222,9 @@ function spawnBoss()
   boss.lastX, boss.stuckTimer, boss.jumpsLeft = 0, 0, 2
   boss.burstTimer, boss.burstState, boss.burstWindup = rnd(300, 600), "NONE", 0
   boss.flash, boss.laserT, boss.laserAng, boss.pendingShot, boss.mouthT, boss.slamming = 0, 0, 0, 0, 0, false
-  boss.parts = {}
-  for _, s in ipairs(BOSS_ORDER) do local a = BOSS_PARTS[s]; boss.parts[s] = a[rnd(1, #a + 1)] end
+  boss.parts = nextBossParts or rollBossParts()
   boss.legs, boss.arms, boss.eyes = boss.parts.legs.id, boss.parts.arms.id, boss.parts.eyes.id
-  boss.name = BNAME_A[boss.parts.body.id] .. "'" .. BNAME_B[boss.parts.eyes.id] .. " " .. BNAME_C[boss.parts.legs.id]
+  boss.name = bossName(boss.parts)
   bossSpawned = true
 end
 

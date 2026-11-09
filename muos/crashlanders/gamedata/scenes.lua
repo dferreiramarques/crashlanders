@@ -56,6 +56,7 @@ end
 function initLevel(firstTime)
   initBaseMap()
   if not firstTime then randomLvlPalette() end
+  nextBossParts = rollBossParts()
   if firstTime then genStars() end
   pBullets, bBullets, drops, particles = {}, {}, {}, {}
   debris, crashDone, crashX, crashY = {}, false, 0, 0
@@ -140,7 +141,7 @@ function dMenu()
   local PX, PY = sx, HZ + 70 + PR
   for _, r in ipairs({ { 22, .07 }, { 11, .14 }, { 4, .4 } }) do G.ring("#ff2f8e", PX, PY, PR + 4, r[1], r[2]) end
   Pm.draw(Pm.PLANET, PX, PY, PR, .55, t * .0012, .08, 0, 0,
-    { dist = 12, tones = Pm.planetTones(lvl.groundHue), noEdge = true, bands = 8, lspan = 30, light = { x = 0, y = -.62, z = .78 } })
+    { dist = 12, tones = Pm.planetTones(lvl.groundHue, lvl.bossHue), noEdge = true, bands = 8, lspan = 30, light = { x = 0, y = -.62, z = .78 } })
   G.arc("#29f3ff", PX, PY, PR + 1, PI * 1.25, PI * 1.75, 1.5, .55)
   -- low-poly moon
   Pm.draw(Pm.MOON, 112, 70, 24, t * .004, t * .007, .3, 22, 55, { dist = 8 })
@@ -323,7 +324,7 @@ end
 
 function dCinSpace()
   dSpaceBG()
-  Pm.draw(Pm.PLANET, SW * .15, SH * .74, 60, .2, cinT * .004, .35, 0, 0, { dist = 8, tones = Pm.planetTones(lvl.groundHue), noEdge = true, bands = 6 })
+  Pm.draw(Pm.PLANET, SW * .15, SH * .74, 60, .2, cinT * .004, .35, 0, 0, { dist = 8, tones = Pm.planetTones(lvl.groundHue, lvl.bossHue), noEdge = true, bands = 6 })
   local crx, cry = max(SW - 200, SW - 60 - cinT * 1.1) + 100, SH * .4
   local cang = -.35 + math.sin(cinT * .01) * .05
   local copt = { dist = 220, edge = "#06000c" }
@@ -369,11 +370,80 @@ function uCinOrbit()
   if cinT > 300 or I.anyPress("start") then gState = "CIN_CRASH"; cinT = 0; initCrashEntry() end
 end
 
+-- ── Foreshadowing: what waits on this planet ──
+local SCAN_TRAITS = { legs = { bipede = "SALTOS PESADOS", aranha = "INVESTIDA RÁPIDA", jatos = "VOO E MERGULHO" },
+                      arms = { garras = "GARRAS", canhoes = "CANHÕES", tentaculos = "TENTÁCULOS" },
+                      eyes = { ciclope = "LASER", gemeos = "RAJADA DUPLA", composto = "MIRA PREDITIVA" } }
+local SCAN_GLYPHS = "ABCDEFGHJKLMNPQRSTUVWXYZ0123456789#%&?"
+-- A pair of eyes in the boss's eye colour, glinting on the planet's night side
+function dPlanetEyes()
+  if cinT < 70 then return end
+  local blink = cinT % 140 < 8
+  local a = clamp((cinT - 70) / 60, 0, 1) * (.75 + math.sin(cinT * .09) * .25)
+  local ex, ey, gap = planet.x - planet.r * .28, planet.y - planet.r * .6, planet.r * .035 + 3
+  local col = U.hsl(lvl.bossHue + 180, 90, 72)
+  for _, dx in ipairs({ -gap, gap }) do
+    G.circle(col, ex + dx, ey, 6, a * .25)
+    G.rect(col, ex + dx - 2, ey - (blink and 0 or 1.5), 4, blink and 1 or 3, a)
+  end
+end
+-- HUD panel: long-range bio-scan of the level's boss
+function dBossScan(x, y, w, h, t)
+  local parts = nextBossParts
+  if not parts then return end
+  local bh = lvl.bossHue
+  local acc = U.hsl(bh + 180, 95, 60)
+  G.alpha = clamp(t / 12, 0, 1)
+  G.rect("#050012", x, y, w, h, .86)
+  G.srect(acc, x + .5, y + .5, w - 1, h - 1, 1, .7)
+  G.rect(acc, x, y, w, 2)
+  local f14 = F("vt", 14)
+  G.text("SINAL BIOLÓGICO · SUPERFÍCIE", x + 8, y + 15, "left", f14, t % 40 < 28 and acc or "#ff2f8e")
+  local blink = t % 120 < 6
+  local spr = bossScanSprite(parts, blink)
+  local sx, sy, sw, sh = x + 10, y + 22, spr:getWidth(), spr:getHeight()
+  local rev = floor(clamp((t - 8) / 90, 0, 1) * sh)
+  G.rect("#0b0418", sx - 2, sy - 2, sw + 4, sh + 4)
+  if rev > 0 then
+    G.set({ 1, 1, 1 })
+    lg.draw(spr, lg.newQuad(0, 0, sw, rev, sw, sh), sx, sy)
+  end
+  for _ = 1, 14 do
+    local ny = sy + rev + love.math.random() * (sh - rev)
+    if ny < sy + sh then G.rect(love.math.random() < .5 and { 1, 1, 1, .18 } or U.hsl(bh + 180, 60, 40), sx + love.math.random() * sw, ny, rnd(2, 8), 1) end
+  end
+  if rev < sh then G.rect(acc, sx - 2, sy + rev, sw + 4, 1) end
+  -- name decoding, letter by letter
+  local name = bossName(parts)
+  local n = floor(clamp((t - 30) / 80, 0, 1) * #name)
+  local shown = name:sub(1, n)
+  for i = n + 1, #name do
+    local c = name:sub(i, i)
+    if c == " " then shown = shown .. " " else local k = rnd(1, #SCAN_GLYPHS + 1); shown = shown .. SCAN_GLYPHS:sub(k, k) end
+  end
+  local tx = sx + sw + 12
+  local sp = shown:find(" ")
+  local f17 = F("vt", 17)
+  local nc = n >= #name and "#ffffff" or "#bba8d8"
+  G.text(sp and shown:sub(1, sp - 1) or shown, tx, y + 38, "left", f17, nc)
+  if sp then G.text(shown:sub(sp + 1), tx, y + 54, "left", f17, nc) end
+  local rows = { { "MOBILIDADE", SCAN_TRAITS.legs[parts.legs.id] }, { "ARMAS", SCAN_TRAITS.arms[parts.arms.id] }, { "SENSORES", SCAN_TRAITS.eyes[parts.eyes.id] } }
+  for i, r in ipairs(rows) do
+    if t >= 115 + (i - 1) * 18 then
+      G.text(r[1], tx, y + 74 + (i - 1) * 14, "left", f14, "#6a6890")
+      G.text(r[2], tx + 70, y + 74 + (i - 1) * 14, "left", f14, "#7fe9ff")
+    end
+  end
+  if t > 175 and t % 30 < 20 then G.text("AMEAÇA: EXTREMA", tx, y + h - 8, "left", f14, "#ff4040") end
+  G.alpha = 1
+end
+
 function dCinOrbit()
   dSpaceBG()
   if cinT < 30 then G.rect({ 0, 0, 0 }, 0, 0, SW, SH); dCinBars("", ""); return end
   for _, r in ipairs({ { 18, .08 }, { 9, .16 }, { 3, .45 } }) do G.ring(lvl.bossAcc, planet.x, planet.y, planet.r + 3, r[1], r[2]) end
-  Pm.draw(Pm.PLANET, planet.x, planet.y, planet.r, .35, cinT * .003, .15, 0, 0, { dist = 9, tones = Pm.planetTones(lvl.groundHue), noEdge = true, bands = 8, lspan = 42 })
+  Pm.draw(Pm.PLANET, planet.x, planet.y, planet.r, .35, cinT * .003, .15, 0, 0, { dist = 9, tones = Pm.planetTones(lvl.groundHue, lvl.bossHue), noEdge = true, bands = 8, lspan = 42 })
+  dPlanetEyes()
   local heat = clamp((cinT - 110) / 150, 0, 1)
   local shx, shy = cs.x + 20, cs.y + 15
   if heat > 0 then shipPlume(shx, shy, cs.angle, 30 + heat * 60, heat) end
@@ -383,6 +453,7 @@ function dCinOrbit()
   G.text(string.format("ALT %03d KM", max(0, floor(140 - cinT * .45))), 24, 58, "left", fv, "#29f3ff")
   G.text(string.format("VEL %.1f KM/S", 7.4 + cinT * .01), 24, 74, "left", fv, "#29f3ff")
   hudGauge(24, SH - 64, "TEMP. CASCO", heat, heat > .7 and "#ff2f8e" or "#ffe95a", heat > .7)
+  if cinT > 100 then dBossScan(SW - 292, 42, 276, 128, cinT - 100) end
   dCinBars("PLANETA KETH-" .. (levelNum + 8) .. "  ·  CLASSE HOSTIL", "PROPULSÃO DESTRUÍDA — ENTRADA NA ATMOSFERA")
 end
 
