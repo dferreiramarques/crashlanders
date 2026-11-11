@@ -2,7 +2,8 @@
 
     python muos/build_zip.py
 
-Writes muos/dist/crashlanders.zip with the launcher, port.json and the game folder.
+Writes muos/dist/crashlanders.zip with the launcher, port.json and the game folder,
+and copies it to guia/downloads/ for the product page.
 Line endings in .sh/.lua/.json are forced to LF (CRLF gives a black screen on device).
 """
 import os
@@ -42,6 +43,13 @@ def main():
                 arc = os.path.relpath(src, HERE).replace(os.sep, "/")
                 add(zf, src, arc)
     print("wrote", out)
+    # Copy next to the product page so its download button serves the latest build
+    page_dl = os.path.join(HERE, "..", "guia", "downloads")
+    if os.path.isdir(os.path.join(HERE, "..", "guia")):
+        os.makedirs(page_dl, exist_ok=True)
+        import shutil
+        shutil.copyfile(out, os.path.join(page_dl, "crashlanders.zip"))
+        print("copied to", os.path.normpath(os.path.join(page_dl, "crashlanders.zip")))
 
 
 if __name__ == "__main__":

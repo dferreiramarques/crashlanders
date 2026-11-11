@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crashlanders — guia</title>
+<meta name="description" content="Crashlanders: como instalar na Anbernic RG35XX H (muOS + PortMaster) e como jogar em multiplayer local, LAN, online e cross-play.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=VT323&family=Mr+Dafoe&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07021a; --bg2:#12052b; --panel:#0e0624; --panel2:#160a33; --line:#2a1a52;
+  --text:#ece6ff; --muted:#a59bc9; --dim:#6f6699;
+  --magenta:#ff2f8e; --cyan:#29f3ff; --yellow:#ffe95a; --green:#3cffaa; --red:#ff4f6d;
+  --radius:14px; --gutter:16px; --max:1120px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font:400 17px/1.65 "Space Grotesk",system-ui,sans-serif;
+  background-image:
+    radial-gradient(1200px 600px at 80% -10%, rgba(255,47,142,.16), transparent 60%),
+    radial-gradient(900px 500px at -10% 30%, rgba(41,243,255,.08), transparent 60%);
+  background-attachment:fixed;
+}
+a{color:var(--cyan)} a:hover{color:#fff}
+img{max-width:100%;height:auto;display:block}
+code,kbd{font-family:"VT323",monospace;font-size:1.15em;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:0 .4em;color:var(--yellow);overflow-wrap:anywhere}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 var(--gutter)}
+.mono{font-family:"VT323",monospace;letter-spacing:.02em}
+
+/* nav */
+nav{position:sticky;top:0;z-index:5;background:rgba(7,2,26,.82);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;gap:20px;height:56px;overflow-x:auto;scrollbar-width:none}
+nav .brand{font:900 16px Orbitron,sans-serif;letter-spacing:.06em;color:#fff;text-decoration:none;white-space:nowrap}
+nav .links{display:flex;gap:18px;margin-left:auto}
+nav .links a{font-family:"VT323",monospace;font-size:20px;color:var(--muted);text-decoration:none;white-space:nowrap}
+nav .links a:hover{color:var(--cyan)}
+
+/* hero */
+.hero{padding-top:56px;padding-bottom:40px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:40px;align-items:center}
+.logo{font:900 clamp(44px,8vw,86px)/.95 Orbitron,sans-serif;margin:0;letter-spacing:.02em;
+  background:linear-gradient(#fff 0%,#9df4ff 40%,#2a1a6a 50%,#ff6ad5 54%,#ffd0f2 80%,#fff 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 0 #ff2f8e) drop-shadow(3px 4px 0 #3c0d6b)}
+.tag{font:400 clamp(30px,4vw,42px) "Mr Dafoe",cursive;color:var(--yellow);transform:rotate(-4deg);margin:-6px 0 18px 40%;
+  text-shadow:2px 2px 0 #2a0040,0 0 18px rgba(255,47,142,.5)}
+.lead{font-size:19px;color:var(--muted);max-width:52ch;margin:0 0 26px}
+.lead strong{color:var(--text)}
+.ctas{display:flex;flex-wrap:wrap;gap:12px}
+.btn{display:inline-flex;align-items:center;gap:10px;padding:12px 22px;border-radius:999px;text-decoration:none;
+  font-family:"VT323",monospace;font-size:22px;line-height:1;border:2px solid var(--cyan);color:#fff;transition:transform .15s,background .15s}
+.btn:hover{transform:translateY(-2px)}
+.btn.primary{background:linear-gradient(#ff5aa8,#c0127a);border-color:var(--cyan);box-shadow:0 0 0 4px rgba(41,243,255,.15)}
+.btn.ghost{background:transparent;color:var(--cyan)}
+.meta{margin-top:14px;font-size:14px;color:var(--dim)}
+.screen{border-radius:var(--radius);overflow:hidden;border:1px solid var(--line);background:#000;
+  box-shadow:0 30px 80px rgba(255,47,142,.18),0 0 0 6px rgba(41,243,255,.05)}
+.screen img{width:100%;aspect-ratio:16/9;object-fit:cover}
+
+/* sections */
+section{padding:56px 0}
+.eyebrow{font-family:"VT323",monospace;font-size:20px;color:var(--magenta);letter-spacing:.08em;margin:0 0 6px}
+h2{font:900 clamp(26px,4vw,38px)/1.15 Orbitron,sans-serif;margin:0 0 14px;letter-spacing:.01em}
+h3{font:700 20px/1.3 "Space Grotesk",sans-serif;margin:0 0 6px}
+.sub{color:var(--muted);max-width:66ch;margin:0 0 30px}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))}
+.card{background:linear-gradient(var(--panel2),var(--panel));border:1px solid var(--line);border-radius:var(--radius);padding:22px}
+.card p{margin:0;color:var(--muted)}
+.card .ico{font-family:"VT323",monospace;font-size:30px;line-height:1;color:var(--cyan);margin-bottom:10px}
+
+/* gallery */
+.gallery{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))}
+figure{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+figure img{width:100%;aspect-ratio:16/9;object-fit:cover}
+figure.console img{aspect-ratio:4/3;object-fit:contain;background:#000}
+figcaption{padding:12px 16px;font-size:15px;color:var(--muted)}
+figcaption b{color:var(--text)}
+
+/* steps */
+.need{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 28px;padding:0;list-style:none}
+.need li{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:15px}
+.need li::before{content:"✓ ";color:var(--green)}
+ol.steps{list-style:none;padding:0;margin:0;counter-reset:s;display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+ol.steps>li{counter-increment:s;position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px 18px 74px}
+ol.steps>li::before{content:counter(s);position:absolute;left:18px;top:16px;width:40px;height:40px;border-radius:10px;
+  display:grid;place-items:center;font:900 20px Orbitron,sans-serif;color:#1a0030;background:var(--yellow)}
+ol.steps p{margin:4px 0 0;color:var(--muted)}
+.note{border-left:3px solid var(--cyan);background:rgba(41,243,255,.06);padding:12px 16px;border-radius:0 10px 10px 0;color:var(--muted);margin:20px 0 0}
+.note.warn{border-color:var(--yellow);background:rgba(255,233,90,.06)}
+.note b{color:var(--text)}
+
+/* tables */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);margin-top:24px}
+table{width:100%;border-collapse:collapse;min-width:520px;background:var(--panel)}
+th,td{text-align:left;padding:11px 16px;border-bottom:1px solid var(--line);font-size:15px;vertical-align:top}
+th{font-family:"VT323",monospace;font-size:19px;font-weight:400;color:var(--cyan);background:var(--panel2)}
+tr:last-child td{border-bottom:0}
+td:first-child{color:var(--text);font-weight:500}
+td{color:var(--muted)}
+.yes{color:var(--green)} .no{color:var(--dim)}
+
+/* multiplayer modes */
+.mode .tagline{font-family:"VT323",monospace;color:var(--yellow);font-size:19px;margin:0 0 8px}
+.mode ol{margin:12px 0 0;padding-left:20px;color:var(--muted)}
+.mode ol li{margin:4px 0}
+.pill{display:inline-block;font-family:"VT323",monospace;font-size:17px;border:1px solid var(--line);border-radius:999px;padding:0 10px;margin:0 4px 8px 0;color:var(--muted)}
+
+.diagram{margin:28px 0 0;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+.diagram svg{width:100%;height:auto;display:block}
+.diagram .cap{font-size:14px;color:var(--dim);margin-top:10px}
+
+pre{background:#05010f;border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;margin:12px 0 0;
+  font:400 19px/1.35 "VT323",monospace;color:var(--green)}
+pre span{color:var(--dim)}
+
+/* faq */
+details{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:0 18px;margin:0 0 10px}
+summary{cursor:pointer;padding:15px 0;font-weight:500;list-style:none;display:flex;gap:10px}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"+";font:900 18px Orbitron,sans-serif;color:var(--magenta);width:16px}
+details[open] summary::before{content:"–"}
+details p{margin:0 0 16px;color:var(--muted)}
+
+footer{border-top:1px solid var(--line);padding:30px 0 50px;color:var(--dim);font-size:14px}
+footer .wrap{display:flex;flex-wrap:wrap;gap:14px 30px;justify-content:space-between}
+
+@media (max-width:860px){
+  .hero{grid-template-columns:minmax(0,1fr);padding-top:36px}
+  .tag{margin-left:20%}
+  nav .links{gap:14px}
+  ol.steps>li{padding:66px 18px 18px}
+}
+@media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} .btn{transition:none} }
+</style>
+</head>
+<body>
+
+<nav aria-label="Secções">
+  <div class="wrap">
+    <a class="brand" href="#top">CRASHLANDERS</a>
+    <div class="links">
+      <a href="#jogo">O jogo</a>
+      <a href="#instalar">Instalar</a>
+      <a href="#multiplayer">Multiplayer</a>
+      <a href="#ajuda">Ajuda</a>
+    </div>
+  </div>
+</nav>
+
+<header class="wrap hero" id="top">
+  <div>
+    <h1 class="logo">CRASH<br>LANDERS</h1>
+    <div class="tag" aria-hidden="true">a survival story</div>
+    <p class="lead">Despenhas-te num planeta hostil, abrigas-te nos <strong>destroços da tua própria nave</strong> e enfrentas um senhor alienígena <strong>diferente em cada nível</strong>. Joga sozinho ou a dois, no browser, numa <strong>Anbernic RG35XX H</strong>, ou nos dois ao mesmo tempo.</p>
+    <div class="ctas">
+      <a class="btn primary" href="../index.html">▶ Jogar no browser</a>
+      <a class="btn ghost" href="downloads/crashlanders.zip" download>⬇ Descarregar para RG35XX H</a>
+    </div>
+    <p class="meta">Pacote PortMaster · LÖVE 11.5 · muOS e outros sistemas com PortMaster (aarch64 / x86_64)</p>
+  </div>
+  <div class="screen"><img src="img/orbita-scan.jpg" alt="Cutscene em órbita: planeta poligonal e o scan HUD que revela o boss que espera o jogador" width="1280" height="720"></div>
+</header>
+
+<section id="jogo">
+  <div class="wrap">
+    <p class="eyebrow">// O JOGO</p>
+    <h2>Cada queda é diferente</h2>
+    <p class="sub">Uma mistura de plataformas e tiros contra um boss, com o visual neon dos anos 80 e polígonos 3D à moda de 1990.</p>
+    <div class="grid">
+      <div class="card"><div class="ico">◇◆◇</div><h3>Bosses montados por peças</h3><p>Cabeça, olhos, boca, corpo, braços, pernas e costas: 2187 combinações. As pernas, os braços e os olhos mudam a forma como o boss se move e ataca.</p></div>
+      <div class="card"><div class="ico">▤▤▤</div><h3>Cobertura feita de destroços</h3><p>Ao cair, a tua nave desfaz-se. Cada pedaço aterra no mapa e torna-se uma plataforma de casco metálico, que os tiros vão rachando.</p></div>
+      <div class="card"><div class="ico">◎ ◎</div><h3>A intro avisa o que te espera</h3><p>O planeta tem as cores do boss, há olhos a brilhar no lado escuro e um scan de longo alcance revela o nome e as habilidades do inimigo.</p></div>
+      <div class="card"><div class="ico">⇄ ⇄</div><h3>Co-op em todo o lado</h3><p>Dois jogadores no mesmo teclado, duas consolas na mesma rede, dois browsers pela internet, ou browser contra consola.</p></div>
+    </div>
+
+    <div class="gallery" style="margin-top:28px">
+      <figure><img src="img/menu.jpg" alt="Menu principal com sol neon, planeta poligonal e botões" loading="lazy" width="1280" height="720"><figcaption><b>Menu.</b> Sol neon a nascer atrás do planeta.</figcaption></figure>
+      <figure><img src="img/intercecao.jpg" alt="Interceção no espaço: cruzador inimigo dispara lasers contra a nave" loading="lazy" width="1280" height="720"><figcaption><b>Interceção.</b> O cruzador acerta à terceira.</figcaption></figure>
+      <figure><img src="img/queda-destrocos.jpg" alt="Destroços da nave a voar para as suas posições no mapa" loading="lazy" width="1280" height="720"><figcaption><b>Queda.</b> Os destroços tornam-se as plataformas.</figcaption></figure>
+      <figure><img src="img/combate.jpg" alt="Combate contra o boss entre plataformas de casco" loading="lazy" width="1280" height="720"><figcaption><b>Combate.</b> 2000 de vida, um ataque especial a cada 20 s.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section id="instalar">
+  <div class="wrap">
+    <p class="eyebrow">// INSTALAR</p>
+    <h2>Instalar na RG35XX H</h2>
+    <p class="sub">O jogo corre no motor LÖVE e instala-se através do PortMaster, que vem com o muOS. São três ficheiros num zip; o PortMaster trata do resto.</p>
+    <ul class="need">
+      <li>Anbernic RG35XX H com muOS</li>
+      <li>PortMaster instalado</li>
+      <li>Wi-Fi na primeira instalação</li>
+      <li>Cartão SD num PC</li>
+    </ul>
+    <ol class="steps">
+      <li><h3>Descarrega o pacote</h3><p><a href="downloads/crashlanders.zip" download>crashlanders.zip</a> — não o descomprimas.</p></li>
+      <li><h3>Copia-o para o cartão</h3><p>Põe o zip na pasta <code>MUOS/PortMaster/autoinstall/</code> do cartão SD (a pasta <code>autoinstall</code> dentro da pasta do PortMaster).</p></li>
+      <li><h3>Abre o PortMaster na consola</h3><p>Ele encontra o zip e instala o jogo sozinho. Na primeira vez também descarrega o runtime LÖVE 11.5, por isso a consola precisa de Wi-Fi.</p></li>
+      <li><h3>Joga</h3><p>O jogo aparece em <b>Ports</b> como <b>Crashlanders</b>. Os saves e as pontuações ficam dentro da pasta do jogo.</p></li>
+    </ol>
+    <p class="note"><b>Fontes opcionais:</b> por omissão a versão da consola usa a fonte do LÖVE. Para ficar igual ao browser, copia os TTF de Orbitron, VT323, Mr Dafoe e Share Tech Mono (Google Fonts, licença OFL) para <code>crashlanders/gamedata/assets/fonts/</code>.</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Ação</th><th>RG35XX H / comando</th><th>Teclado P1</th><th>Teclado P2</th></tr></thead>
+        <tbody>
+          <tr><td>Mover · mirar</td><td>D-pad ou stick</td><td>Setas</td><td>W A S D</td></tr>
+          <tr><td>Saltar</td><td>A</td><td>AltGr / Shift dir.</td><td>1 / Espaço</td></tr>
+          <tr><td>Disparar (segurar fixa a direção)</td><td>B ou R2</td><td>Ctrl dir.</td><td>Q</td></tr>
+          <tr><td>Descer de uma plataforma</td><td>Baixo + A</td><td>↓ + saltar</td><td>S + saltar</td></tr>
+          <tr><td>Loja: arma · cadência · salto ×2 · paraquedas</td><td>X · Y · L1 · R1</td><td>Z X C V</td><td>G H J K</td></tr>
+          <tr><td>Confirmar · saltar a intro</td><td>Start</td><td>Enter</td><td>Enter</td></tr>
+          <tr><td>Voltar ao menu</td><td>Select</td><td>Esc</td><td>Esc</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="gallery" style="margin-top:24px">
+      <figure class="console"><img src="img/consola-orbita.png" alt="Versão da consola: cutscene em órbita com o scan do boss a descodificar" loading="lazy" width="640" height="480"><figcaption><b>Na consola.</b> O mesmo jogo, a 640×480.</figcaption></figure>
+      <figure class="console"><img src="img/consola-coop.png" alt="Versão da consola em co-op online, ligada a um browser" loading="lazy" width="640" height="480"><figcaption><b>Co-op.</b> Consola convidada de um jogo aberto no browser.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section id="multiplayer">
+  <div class="wrap">
+    <p class="eyebrow">// MULTIPLAYER</p>
+    <h2>Joga a dois, onde estiveres</h2>
+    <p class="sub">Em todos os modos online um dos aparelhos é o <b>anfitrião</b>: corre o jogo e envia o estado ao outro cerca de 30 vezes por segundo. O convidado só envia os botões que carrega. É cooperativo: os dois contra o boss.</p>
+
+    <div class="grid">
+      <div class="card mode">
+        <p class="tagline">LOCAL</p>
+        <h3>No mesmo aparelho</h3>
+        <span class="pill">browser</span><span class="pill">consola</span>
+        <p>No menu escolhe <b>2 JOGADORES</b>. No browser, cada um usa a sua metade do teclado. Na consola, o 2.º jogador liga um comando por USB-C.</p>
+      </div>
+      <div class="card mode">
+        <p class="tagline">LAN</p>
+        <h3>Consola com consola</h3>
+        <span class="pill">consola</span><span class="pill">PC com LÖVE</span><span class="pill">mesma rede</span>
+        <ol>
+          <li>Os dois aparelhos na mesma rede Wi-Fi.</li>
+          <li>Num: <b>LAN · CO-OP → CRIAR JOGO</b>.</li>
+          <li>No outro: <b>LAN · CO-OP → PROCURAR JOGO</b> e escolhe o anfitrião.</li>
+        </ol>
+      </div>
+      <div class="card mode">
+        <p class="tagline">ONLINE</p>
+        <h3>Browser com browser</h3>
+        <span class="pill">browser</span><span class="pill">qualquer rede</span>
+        <ol>
+          <li>Um escolhe <b>ONLINE · CO-OP → CRIAR SALA</b> e recebe um código de 4 letras.</li>
+          <li>O outro escolhe <b>ENTRAR COM CÓDIGO</b> e escreve-o.</li>
+          <li>A intro começa quando os dois estão na sala.</li>
+        </ol>
+      </div>
+      <div class="card mode">
+        <p class="tagline">CROSS-PLAY</p>
+        <h3>Browser com consola</h3>
+        <span class="pill">browser</span><span class="pill">consola</span><span class="pill">relay no PC</span>
+        <p>A consola não consegue entrar diretamente nas salas do browser. Um pequeno programa no teu PC, o <b>relay</b>, faz a ponte. Vê os passos abaixo.</p>
+      </div>
+    </div>
+
+    <div class="diagram">
+      <svg viewBox="0 0 900 190" role="img" aria-labelledby="dgT dgD">
+        <title id="dgT">Como funciona o cross-play</title>
+        <desc id="dgD">A consola liga-se por TCP ao relay no PC da mesma rede; o relay entra na sala do Supabase Realtime, onde está o browser.</desc>
+        <defs><marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#29f3ff" stroke-width="1.6"/></marker></defs>
+        <g font-family="Space Grotesk, sans-serif">
+          <rect x="10" y="50" width="170" height="90" rx="12" fill="#160a33" stroke="#ff2f8e"/>
+          <text x="95" y="88" text-anchor="middle" fill="#ece6ff" font-size="17" font-weight="700">Consola</text>
+          <text x="95" y="112" text-anchor="middle" fill="#a59bc9" font-size="14">RG35XX H · LÖVE</text>
+          <rect x="250" y="50" width="170" height="90" rx="12" fill="#160a33" stroke="#ffe95a"/>
+          <text x="335" y="88" text-anchor="middle" fill="#ece6ff" font-size="17" font-weight="700">Relay</text>
+          <text x="335" y="112" text-anchor="middle" fill="#a59bc9" font-size="14">no teu PC · Node</text>
+          <rect x="490" y="50" width="170" height="90" rx="12" fill="#160a33" stroke="#29f3ff"/>
+          <text x="575" y="88" text-anchor="middle" fill="#ece6ff" font-size="17" font-weight="700">Sala online</text>
+          <text x="575" y="112" text-anchor="middle" fill="#a59bc9" font-size="14">Supabase Realtime</text>
+          <rect x="730" y="50" width="160" height="90" rx="12" fill="#160a33" stroke="#ff2f8e"/>
+          <text x="810" y="88" text-anchor="middle" fill="#ece6ff" font-size="17" font-weight="700">Browser</text>
+          <text x="810" y="112" text-anchor="middle" fill="#a59bc9" font-size="14">em qualquer sítio</text>
+          <line x1="182" y1="95" x2="246" y2="95" stroke="#29f3ff" stroke-width="2" marker-start="url(#ar)" marker-end="url(#ar)"/>
+          <line x1="422" y1="95" x2="486" y2="95" stroke="#29f3ff" stroke-width="2" marker-start="url(#ar)" marker-end="url(#ar)"/>
+          <line x1="662" y1="95" x2="726" y2="95" stroke="#29f3ff" stroke-width="2" marker-start="url(#ar)" marker-end="url(#ar)"/>
+          <text x="214" y="40" text-anchor="middle" fill="#6f6699" font-size="13">TCP · LAN</text>
+          <text x="454" y="40" text-anchor="middle" fill="#6f6699" font-size="13">wss</text>
+          <text x="694" y="40" text-anchor="middle" fill="#6f6699" font-size="13">wss</text>
+          <path d="M10 165 H420" stroke="#2a1a52" stroke-width="2"/>
+          <text x="215" y="184" text-anchor="middle" fill="#6f6699" font-size="13">a tua rede Wi-Fi</text>
+          <path d="M490 165 H890" stroke="#2a1a52" stroke-width="2"/>
+          <text x="690" y="184" text-anchor="middle" fill="#6f6699" font-size="13">internet</text>
+        </g>
+      </svg>
+      <p class="cap">O relay entra na sala online em nome da consola e passa as mensagens nos dois sentidos. Browser e consola usam as mesmas salas de 4 letras, e qualquer um pode ser o anfitrião.</p>
+    </div>
+
+    <h3 style="margin-top:34px">Ligar o relay (uma vez por sessão)</h3>
+    <ol class="steps" style="margin-top:14px">
+      <li><h3>No PC, na mesma rede que a consola</h3><p>Precisas do <a href="https://nodejs.org" rel="noopener">Node.js</a> 22 ou mais recente e do código do jogo (pasta <code>relay/</code>).</p>
+<pre><span>$</span> cd relay
+<span>$</span> npm install
+<span>$</span> npm start
+relay listening on tcp 47240 (LAN 192.168.1.x)</pre></li>
+      <li><h3>Na consola</h3><p><b>LAN · CO-OP → PROCURAR JOGO</b>. O relay aparece como <code>ONLINE (relay …)</code>. Escolhe <b>CRIAR SALA</b> (o código aparece no ecrã) ou <b>ENTRAR COM CÓDIGO</b> (escolhes as letras com o D-pad).</p></li>
+      <li><h3>No browser</h3><p><b>ONLINE · CO-OP</b> e entra na sala com o mesmo código, ou cria tu a sala e dá o código a quem está na consola.</p></li>
+    </ol>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Modo</th><th>Aparelhos</th><th>Rede</th><th>Precisa de servidor?</th></tr></thead>
+        <tbody>
+          <tr><td>Local</td><td>1 browser ou 1 consola</td><td>—</td><td class="no">Não</td></tr>
+          <tr><td>LAN</td><td>Consola ↔ consola / PC com LÖVE</td><td>Mesma rede Wi-Fi</td><td class="no">Não</td></tr>
+          <tr><td>Online</td><td>Browser ↔ browser</td><td>Internet</td><td class="yes">Supabase (já incluído)</td></tr>
+          <tr><td>Cross-play</td><td>Browser ↔ consola</td><td>Consola e relay na mesma rede</td><td class="yes">Relay no teu PC</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="ajuda">
+  <div class="wrap">
+    <p class="eyebrow">// AJUDA</p>
+    <h2>Resolução de problemas</h2>
+    <details><summary>O jogo não aparece em Ports depois de copiar o zip</summary><p>Confirma que o zip está inteiro (sem o descomprimir) dentro da pasta <code>autoinstall</code> do PortMaster e abre o PortMaster uma vez. Na primeira instalação a consola precisa de Wi-Fi para descarregar o runtime LÖVE.</p></details>
+    <details><summary>Ao abrir o jogo fica o ecrã preto</summary><p>Costuma acontecer quando os ficheiros <code>.sh</code> ou <code>.lua</code> foram gravados com quebras de linha do Windows (CRLF). Usa sempre o zip gerado pelo <code>build_zip.py</code> ou o da página, que força quebras de linha Unix. O registo do arranque fica em <code>ports/crashlanders/log.txt</code>.</p></details>
+    <details><summary>Em PROCURAR JOGO a lista fica vazia</summary><p>Os dois aparelhos (ou a consola e o PC do relay) têm de estar na mesma rede Wi-Fi. Algumas redes de convidados isolam os aparelhos uns dos outros. No PC, permite o Node.js e o LÖVE na firewall: o jogo usa as portas UDP 47231 (descoberta) e 47232 (jogo LAN) e a TCP 47240 (relay).</p></details>
+    <details><summary>A sala online não liga ("Erro de ligação")</summary><p>As salas online usam um projeto Supabase gratuito, que é pausado depois de alguns dias sem uso. Quando isso acontece tem de ser reativado no painel do Supabase; o leaderboard do browser também volta a funcionar.</p></details>
+    <details><summary>Há atraso a jogar online</summary><p>O convidado vê o jogo com o atraso da ligação até ao anfitrião (normalmente 50 a 150 ms). Como é cooperativo isto pesa pouco, mas o jogador com a ligação mais estável deve ser o anfitrião.</p></details>
+    <details><summary>Os upgrades do jogo a solo desaparecem depois de jogar online?</summary><p>Não. Os jogos LAN e online não tocam no save local; o teu progresso a solo continua lá.</p></details>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>CRASHLANDERS · por David Marques</span>
+    <span>Consola: LÖVE 11.5 (zlib) via PortMaster · Online: Supabase Realtime</span>
+    <a href="https://github.com/dferreiramarques/crashlanders" rel="noopener">Código no GitHub</a>
+  </div>
+</footer>
+
+</body>
+</html>
