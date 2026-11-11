@@ -462,7 +462,7 @@ function initPlayers(sx,sy){
     p.id=i; p.col=PCOLS[i]; p.ctrl=CTRL[i]; p.remote=NET.mode==='host'&&i===1;
     p.hp=PHP; p.maxHP=PHP;
     // Aim = elevation relative to facing (−π/2 up … +π/2 down); facing follows movement
-    p.facing=i===0?1:-1; p.aimElev=0; p.aimAngle=i===0?0:Math.PI;
+    p.facing=i===0?1:-1; p.aimAngle=i===0?0:Math.PI;
     p.shootCD=0; p.iframes=0; p.onGround=false;
     p.jumpPressed=false; p.coyote=0; p.jumpBuf=0; p.kbVx=0;
     p.weaponLvl=ps.weaponLvl;
@@ -903,7 +903,7 @@ function netApplySnap(s){
   if(lvl.groundHue!==s.gh||lvl.bossHue!==s.bh) setLvlHues(s.gh,s.bh);
   s.pl.forEach((q,i)=>{
     let p=players[i];
-    if(!p){ p=new Body(q.x,q.y,PW,PH); p.id=i; p.col=PCOLS[i]; p.ctrl=CTRL[i]; p.kbVx=0; p.aimElev=0; players[i]=p; }
+    if(!p){ p=new Body(q.x,q.y,PW,PH); p.id=i; p.col=PCOLS[i]; p.ctrl=CTRL[i]; p.kbVx=0; players[i]=p; }
     Object.assign(p,q);
   });
   players.length=s.pl.length;
@@ -1480,6 +1480,7 @@ function uDeadPlayer(p){
   p.vx=0; p.kbVx=0; p.step(); checkDustLanding(p);
 }
 
+const AIM_SPD=.08;   // rad per frame: a full turn in ~1.3 s
 function uPlayer(p){
   const c=p.ctrl;
   const L=pin(p,'left'), R=pin(p,'right'), shootHeld=pin(p,'shoot'), jumpHeld=pin(p,'jump'), downHeld=pin(p,'aimDown');
@@ -1487,13 +1488,12 @@ function uPlayer(p){
   // Movement (+ decaying knockback so hits actually push you)
   p.vx=(R?PSPD:0)-(L?PSPD:0)+p.kbVx;
   p.kbVx*=.82; if(Math.abs(p.kbVx)<.1) p.kbVx=0;
-  // Facing follows movement; holding fire locks it (strafe: retreat while shooting)
-  if(!shootHeld){ if(L&&!R) p.facing=-1; else if(R&&!L) p.facing=1; }
-  // Up always raises the gun, down always lowers it, whichever way you face
-  if(pin(p,'aimUp')) p.aimElev-=.08;
-  if(downHeld)     p.aimElev+=.08;
-  p.aimElev=clamp(p.aimElev,-Math.PI/2,Math.PI/2);
-  p.aimAngle=p.facing>0?p.aimElev:Math.PI-p.aimElev;
+  // 360° aim: ↑ turns the gun counter-clockwise, ↓ clockwise, all the way round.
+  // Moving doesn't change the aim; the body faces the side the gun points to.
+  if(pin(p,'aimUp')) p.aimAngle-=AIM_SPD;
+  if(downHeld)       p.aimAngle+=AIM_SPD;
+  p.aimAngle=Math.atan2(Math.sin(p.aimAngle),Math.cos(p.aimAngle));
+  const ac=Math.cos(p.aimAngle); if(ac>.05) p.facing=1; else if(ac<-.05) p.facing=-1;
 
   if(p.onGround){ p.coyote=6; p.airJumps=p.doubleJump?1:0; }
   else if(p.coyote>0) p.coyote--;
@@ -2165,7 +2165,7 @@ function dMenu(){
   const rows=[
     {c:'#7fe9ff', t:'P1  ← → mover  ↑ ↓ mira  AltGr/Shift Dir saltar  Ctrl Dir disparar'},
     {c:'#ffb35a', t:'P2  A D mover  W S mira  1/Espaço saltar  Q disparar'},
-    {c:'#c9a0ff', t:'Disparo fixa a direção  ·  Baixo + saltar desce plataforma'},
+    {c:'#c9a0ff', t:'↑ roda a mira ↺  ·  ↓ roda ↻ (360°)  ·  Baixo + saltar desce plataforma'},
     {c:'#7dffb0', t:'LOJA  P1 Z X C V   ·   P2 G H J K'},
     {c:'#8a7aa8', t:'↑ ↓ escolher   ·   Enter confirmar'},
   ];

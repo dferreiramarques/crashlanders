@@ -40,7 +40,7 @@ function initPlayers(sx, sy)
     local p = newBody(sx + (i - 1) * 22, sy, PW, PH)
     p.id, p.col = i, PCOLS[i]
     p.hp, p.maxHP = PHP, PHP
-    p.facing = i == 1 and 1 or -1; p.aimElev = 0; p.aimAngle = i == 1 and 0 or PI
+    p.facing = i == 1 and 1 or -1; p.aimAngle = i == 1 and 0 or PI
     p.shootCD, p.iframes, p.coyote, p.jumpBuf, p.kbVx, p.airJumps = 0, 0, 0, 0, 0, 0
     p.jumpPressed = false
     p.weaponLvl, p.fireRate, p.doubleJump, p.parachute = ps.weaponLvl, ps.fireRate, ps.doubleJump, ps.parachute
@@ -252,11 +252,13 @@ local function uPlayer(p)
   p.jh, p.sh = jumpHeld, shootHeld
   p.vx = (R and PSPD or 0) - (L and PSPD or 0) + p.kbVx
   p.kbVx = p.kbVx * .82; if abs(p.kbVx) < .1 then p.kbVx = 0 end
-  if not shootHeld then if L and not R then p.facing = -1 elseif R and not L then p.facing = 1 end end
-  if PIN(p, "up") then p.aimElev = p.aimElev - .08 end
-  if downHeld then p.aimElev = p.aimElev + .08 end
-  p.aimElev = clamp(p.aimElev, -PI / 2, PI / 2)
-  p.aimAngle = p.facing > 0 and p.aimElev or PI - p.aimElev
+  -- 360° aim: up turns the gun counter-clockwise, down clockwise, all the way round;
+  -- the body faces the side the gun points to
+  if PIN(p, "up") then p.aimAngle = p.aimAngle - .08 end
+  if downHeld then p.aimAngle = p.aimAngle + .08 end
+  p.aimAngle = math.atan2(math.sin(p.aimAngle), math.cos(p.aimAngle))
+  local ac = math.cos(p.aimAngle)
+  if ac > .05 then p.facing = 1 elseif ac < -.05 then p.facing = -1 end
 
   if p.onGround then p.coyote = 6; p.airJumps = p.doubleJump and 1 or 0
   elseif p.coyote > 0 then p.coyote = p.coyote - 1 end

@@ -213,8 +213,8 @@ function dMenu()
 
   -- controls panel (gamepad first: this build targets handhelds)
   local rows = {
-    { "#7fe9ff", "D-pad  mover e mirar   ·   A  saltar   ·   B  disparar" },
-    { "#c9a0ff", "Segurar B fixa a direção   ·   Baixo + A  desce plataforma" },
+    { "#7fe9ff", "D-pad  mover   ·   A  saltar   ·   B  disparar" },
+    { "#c9a0ff", "Cima/Baixo rodam a mira 360°   ·   Baixo + A  desce plataforma" },
     { "#7dffb0", "Loja:  X arma   Y cadência   L1 salto x2   R1 paraquedas" },
     { "#ffb35a", "P2: segundo comando USB   ·   Start confirmar" },
   }

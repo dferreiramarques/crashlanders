@@ -158,7 +158,7 @@ local function applySnap(s)
   if lvl.groundHue ~= s.gh or lvl.bossHue ~= s.bh then setLvlPalette(s.gh, s.bh) end
   for i, q in ipairs(s.pl) do
     local p = players[i]
-    if not p then p = newBody(q.x, q.y, PW, PH); p.id = i; p.col = PCOLS[i]; p.kbVx = 0; p.aimElev = 0; players[i] = p end
+    if not p then p = newBody(q.x, q.y, PW, PH); p.id = i; p.col = PCOLS[i]; p.kbVx = 0; players[i] = p end
     for k, v in pairs(q) do p[k] = v end
   end
   for i = #s.pl + 1, #players do players[i] = nil end

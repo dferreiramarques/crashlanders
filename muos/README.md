@@ -18,9 +18,10 @@ primeira vez, se ainda não estiver instalado).
 
 | Ação | Comando | Teclado P1 | Teclado P2 |
 |---|---|---|---|
-| Mover / mirar | D-pad ou stick | setas | W A S D |
+| Mover | D-pad / stick ← → | ← → | A D |
+| Rodar a mira 360° (cima ↺, baixo ↻) | D-pad / stick ↑ ↓ | ↑ ↓ | W S |
 | Saltar | A | AltGr / Shift dir. | 1 / Espaço |
-| Disparar (segurar fixa a direção) | B ou R2 | Ctrl dir. | Q |
+| Disparar | B ou R2 | Ctrl dir. | Q |
 | Descer plataforma | Baixo + A | ↓ + saltar | S + saltar |
 | Loja: arma / cadência / salto×2 / paraquedas | X / Y / L1 / R1 | Z X C V | G H J K |
 | Confirmar / saltar intro | Start | Enter | Enter |
