@@ -1215,6 +1215,7 @@ function uCinSpace(){
 //  CIN_ORBIT — cut to black → planet fills half screen → ship enters orbit
 //  ~5s (300 frames)
 // ═══════════════════════════════════════════════════════
+const SCAN_START=100, SCAN_FULL=175, ORBIT_END=SCAN_START+SCAN_FULL+120;
 function uCinOrbit(){
   cinT++;
   // Phase A (0-30): black hold (planet not visible yet)
@@ -1226,7 +1227,7 @@ function uCinOrbit(){
   }
   // Ship: enters upper-right after frame 60, arcs into orbit
   if(cinT>60){
-    const t=(cinT-60)/180;
+    const t=Math.min(1.15,(cinT-60)/180);   // settle into orbit while the scan finishes
     const orbitAngle=-Math.PI*.6 + t*Math.PI*.5;
     const orbitR=planet.r*.8;
     const tx=planet.x+Math.cos(orbitAngle)*orbitR-20;
@@ -1237,7 +1238,8 @@ function uCinOrbit(){
     // Damaged thruster sputter every ~0.5s
     if(cinT%30===0) sndThruster(.03);
   }
-  if(cinT>300){ gState='CIN_CRASH'; cinT=0; initCrashEntry(); }
+  // Leave orbit only after the boss scan is complete (cinT 100 + 175) and has stayed up for 2 s
+  if(cinT>ORBIT_END){ gState='CIN_CRASH'; cinT=0; initCrashEntry(); }
 }
 
 function initCrashEntry(){
@@ -2293,7 +2295,7 @@ function dCinOrbit(){
   ctx.fillText(`ALT ${String(alt).padStart(3,'0')} KM`,24,58);
   ctx.fillText(`VEL ${(7.4+cinT*.01).toFixed(1)} KM/S`,24,74);
   hudGauge(24,H-64,'TEMP. CASCO',heat,heat>.7?'#ff2f8e':'#ffe95a',heat>.7);
-  if(cinT>100) dBossScan(W-292,42,276,128,cinT-100);
+  if(cinT>SCAN_START) dBossScan(W-292,42,276,128,cinT-SCAN_START);
   dCinBars(`PLANETA KETH-${levelNum+8}  ·  CLASSE HOSTIL`,'PROPULSÃO DESTRUÍDA — ENTRADA NA ATMOSFERA');
 }
 
@@ -2359,7 +2361,7 @@ function dBossScan(x,y,w,h,t){
     ctx.fillStyle='#6a6890'; ctx.fillText(k,tx,y+74+i*14);
     ctx.fillStyle='#7fe9ff'; ctx.fillText(v,tx+70,y+74+i*14);
   });
-  if(t>175&&t%30<20){ ctx.fillStyle='#ff4040'; ctx.fillText('AMEAÇA: EXTREMA',tx,y+h-8); }
+  if(t>SCAN_FULL&&(t<SCAN_FULL+30||t%30<20)){ ctx.fillStyle='#ff4040'; ctx.fillText('AMEAÇA: EXTREMA',tx,y+h-8); }
   ctx.restore();
 }
 

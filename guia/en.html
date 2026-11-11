@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crashlanders — guide</title>
+<meta name="description" content="Crashlanders: how to install it on the Anbernic RG35XX H (muOS + PortMaster) and how to play local, LAN, online and cross-play multiplayer.">
+<link rel="alternate" hreflang="pt" href="index.html">
+<link rel="alternate" hreflang="en" href="en.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=VT323&family=Mr+Dafoe&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07021a; --bg2:#12052b; --panel:#0e0624; --panel2:#160a33; --line:#2a1a52;
+  --text:#ece6ff; --muted:#a59bc9; --dim:#6f6699;
+  --magenta:#ff2f8e; --cyan:#29f3ff; --yellow:#ffe95a; --green:#3cffaa; --red:#ff4f6d;
+  --radius:14px; --gutter:16px; --max:1120px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font:400 17px/1.65 "Space Grotesk",system-ui,sans-serif;
+  background-image:
+    radial-gradient(1200px 600px at 80% -10%, rgba(255,47,142,.16), transparent 60%),
+    radial-gradient(900px 500px at -10% 30%, rgba(41,243,255,.08), transparent 60%);
+  background-attachment:fixed;
+}
+a{color:var(--cyan)} a:hover{color:#fff}
+img{max-width:100%;height:auto;display:block}
+code,kbd{font-family:"VT323",monospace;font-size:1.15em;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:0 .4em;color:var(--yellow);overflow-wrap:anywhere}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 var(--gutter)}
+.mono{font-family:"VT323",monospace;letter-spacing:.02em}
+
+/* nav */
+nav{position:sticky;top:0;z-index:5;background:rgba(7,2,26,.82);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;gap:20px;height:56px;overflow-x:auto;scrollbar-width:none}
+nav .brand{font:900 16px Orbitron,sans-serif;letter-spacing:.06em;color:#fff;text-decoration:none;white-space:nowrap}
+nav .links{display:flex;gap:18px;margin-left:auto}
+nav .links a{font:500 15px "Space Grotesk",system-ui,sans-serif;color:var(--muted);text-decoration:none;white-space:nowrap}
+nav .links a:hover{color:var(--cyan)}
+nav .lang{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;flex:none}
+nav .lang a{font:500 13px "Space Grotesk",system-ui,sans-serif;padding:4px 10px;color:var(--muted);text-decoration:none}
+nav .lang a[aria-current]{background:var(--magenta);color:#fff}
+
+/* hero */
+.hero{padding-top:56px;padding-bottom:40px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:40px;align-items:center}
+.logo{font:900 clamp(44px,8vw,86px)/.95 Orbitron,sans-serif;margin:0;letter-spacing:.02em;
+  background:linear-gradient(#fff 0%,#9df4ff 40%,#2a1a6a 50%,#ff6ad5 54%,#ffd0f2 80%,#fff 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 0 #ff2f8e) drop-shadow(3px 4px 0 #3c0d6b)}
+.tag{font:400 clamp(30px,4vw,42px) "Mr Dafoe",cursive;color:var(--yellow);transform:rotate(-4deg);margin:-6px 0 18px 40%;
+  text-shadow:2px 2px 0 #2a0040,0 0 18px rgba(255,47,142,.5)}
+.lead{font-size:19px;color:var(--muted);max-width:52ch;margin:0 0 26px}
+.lead strong{color:var(--text)}
+.ctas{display:flex;flex-wrap:wrap;gap:12px}
+.btn{display:inline-flex;align-items:center;gap:10px;padding:12px 22px;border-radius:999px;text-decoration:none;
+  font-family:"VT323",monospace;font-size:22px;line-height:1;border:2px solid var(--cyan);color:#fff;transition:transform .15s,background .15s}
+.btn:hover{transform:translateY(-2px)}
+.btn.primary{background:linear-gradient(#ff5aa8,#c0127a);border-color:var(--cyan);box-shadow:0 0 0 4px rgba(41,243,255,.15)}
+.btn.ghost{background:transparent;color:var(--cyan)}
+.meta{margin-top:14px;font-size:14px;color:var(--dim)}
+.screen{border-radius:var(--radius);overflow:hidden;border:1px solid var(--line);background:#000;
+  box-shadow:0 30px 80px rgba(255,47,142,.18),0 0 0 6px rgba(41,243,255,.05)}
+.screen img{width:100%;aspect-ratio:16/9;object-fit:cover}
+
+/* sections */
+section{padding:56px 0}
+.eyebrow{font-family:"VT323",monospace;font-size:20px;color:var(--magenta);letter-spacing:.08em;margin:0 0 6px}
+h2{font:900 clamp(26px,4vw,38px)/1.15 Orbitron,sans-serif;margin:0 0 14px;letter-spacing:.01em}
+h3{font:700 20px/1.3 "Space Grotesk",sans-serif;margin:0 0 6px}
+.sub{color:var(--muted);max-width:66ch;margin:0 0 30px}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))}
+.card{background:linear-gradient(var(--panel2),var(--panel));border:1px solid var(--line);border-radius:var(--radius);padding:22px}
+.card p{margin:0;color:var(--muted)}
+.card .ico{font-family:"VT323",monospace;font-size:30px;line-height:1;color:var(--cyan);margin-bottom:10px}
+
+/* gallery */
+.gallery{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))}
+figure{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+figure img{width:100%;aspect-ratio:16/9;object-fit:cover}
+figure.console img{aspect-ratio:4/3;object-fit:contain;background:#000}
+figcaption{padding:12px 16px;font-size:15px;color:var(--muted)}
+figcaption b{color:var(--text)}
+
+/* steps */
+.need{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 28px;padding:0;list-style:none}
+.need li{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:15px}
+.need li::before{content:"✓ ";color:var(--green)}
+ol.steps{list-style:none;padding:0;margin:0;counter-reset:s;display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+ol.steps>li{counter-increment:s;position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px 18px 74px}
+ol.steps>li::before{content:counter(s);position:absolute;left:18px;top:16px;width:40px;height:40px;border-radius:10px;
+  display:grid;place-items:center;font:900 20px Orbitron,sans-serif;color:#1a0030;background:var(--yellow)}
+ol.steps p{margin:4px 0 0;color:var(--muted)}
+.note{border-left:3px solid var(--cyan);background:rgba(41,243,255,.06);padding:12px 16px;border-radius:0 10px 10px 0;color:var(--muted);margin:20px 0 0}
+.note.warn{border-color:var(--yellow);background:rgba(255,233,90,.06)}
+.note b{color:var(--text)}
+
+/* tables */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);margin-top:24px}
+table{width:100%;border-collapse:collapse;min-width:520px;background:var(--panel)}
+th,td{text-align:left;padding:11px 16px;border-bottom:1px solid var(--line);font-size:15px;vertical-align:top}
+th{font-family:"VT323",monospace;font-size:19px;font-weight:400;color:var(--cyan);background:var(--panel2)}
+tr:last-child td{border-bottom:0}
+td:first-child{color:var(--text);font-weight:500}
+td{color:var(--muted)}
+.yes{color:var(--green)} .no{color:var(--dim)}
+
+/* multiplayer modes */
+.mode .tagline{font-family:"VT323",monospace;color:var(--yellow);font-size:19px;margin:0 0 8px}
+.mode ol{margin:12px 0 0;padding-left:20px;color:var(--muted)}
+.mode ol li{margin:4px 0}
+.pill{display:inline-block;font-family:"VT323",monospace;font-size:17px;border:1px solid var(--line);border-radius:999px;padding:0 10px;margin:0 4px 8px 0;color:var(--muted)}
+
+.diagram{margin:28px 0 0;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+.diagram svg{width:100%;height:auto;display:block}
+.diagram .cap{font-size:14px;color:var(--dim);margin-top:10px}
+
+pre{background:#05010f;border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;margin:12px 0 0;
+  font:400 19px/1.35 "VT323",monospace;color:var(--green)}
+pre span{color:var(--dim)}
+
+/* faq */
+details{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:0 18px;margin:0 0 10px}
+summary{cursor:pointer;padding:15px 0;font-weight:500;list-style:none;display:flex;gap:10px}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"+";font:900 18px Orbitron,sans-serif;color:var(--magenta);width:16px}
+details[open] summary::before{content:"–"}
+details p{margin:0 0 16px;color:var(--muted)}
+
+footer{border-top:1px solid var(--line);padding:30px 0 50px;color:var(--dim);font-size:14px}
+footer .wrap{display:flex;flex-wrap:wrap;gap:14px 30px;justify-content:space-between}
+
+@media (max-width:860px){
+  .hero{grid-template-columns:minmax(0,1fr);padding-top:36px}
+  .tag{margin-left:20%}
+  nav .links{gap:14px}
+  ol.steps>li{padding:66px 18px 18px}
+}
+@media (max-width:640px){ nav .links{display:none} nav .lang{margin-left:auto} }
+@media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} .btn{transition:none} }
+</style>
+</head>
+<body>
+
+<nav aria-label="Sections">
+  <div class="wrap">
+    <a class="brand" href="#top">CRASHLANDERS</a>
+    <div class="links">
+      <a href="#game">The game</a>
+      <a href="#install">Install</a>
+      <a href="#multiplayer">Multiplayer</a>
+      <a href="#help">Help</a>
+    </div>
+    <div class="lang" aria-label="Language"><a href="index.html" hreflang="pt">PT</a><a href="en.html" hreflang="en" aria-current="page">EN</a></div>
+  </div>
+</nav>
+
+<header class="wrap hero" id="top">
+  <div>
+    <h1 class="logo">CRASH<br>LANDERS</h1>
+    <div class="tag" aria-hidden="true">a survival story</div>
+    <p class="lead">You crash-land on a hostile planet, take cover behind the <strong>wreckage of your own ship</strong> and face an alien overlord that is <strong>different every level</strong>. Play solo or with a friend, in the browser, on an <strong>Anbernic RG35XX H</strong>, or both at once.</p>
+    <div class="ctas">
+      <a class="btn primary" href="../index.html">▶ Play in the browser</a>
+      <a class="btn ghost" href="downloads/crashlanders.zip" download>⬇ Download for RG35XX H</a>
+    </div>
+    <p class="meta">PortMaster package · LÖVE 11.5 · muOS and other PortMaster systems (aarch64 / x86_64) · the game's menus are in Portuguese</p>
+  </div>
+  <div class="screen"><img src="img/orbita-scan.jpg" alt="Orbit cutscene: a polygonal planet and the HUD scan revealing the boss that awaits the player" width="1280" height="720"></div>
+</header>
+
+<section id="game">
+  <div class="wrap">
+    <p class="eyebrow">// THE GAME</p>
+    <h2>Every crash is different</h2>
+    <p class="sub">A mix of platforming and boss shooting, with an 80s neon look and 1990-style flat-shaded 3D polygons.</p>
+    <div class="grid">
+      <div class="card"><div class="ico">◇◆◇</div><h3>Bosses built from parts</h3><p>Head, eyes, mouth, body, arms, legs and back: 2,187 combinations. Legs, arms and eyes change how the boss moves and attacks.</p></div>
+      <div class="card"><div class="ico">▤▤▤</div><h3>Cover made of wreckage</h3><p>When you crash, your ship breaks apart. Each piece lands on the map and becomes a metal hull platform that cracks under fire.</p></div>
+      <div class="card"><div class="ico">◎ ◎</div><h3>The intro warns you</h3><p>The planet takes the boss's colours, eyes glint on its dark side and a long-range scan reveals the enemy's name and abilities.</p></div>
+      <div class="card"><div class="ico">⇄ ⇄</div><h3>Co-op everywhere</h3><p>Two players on one keyboard, two handhelds on the same network, two browsers over the internet, or browser with handheld.</p></div>
+    </div>
+
+    <div class="gallery" style="margin-top:28px">
+      <figure><img src="img/menu.jpg" alt="Main menu with a neon sun, a polygonal planet and buttons" loading="lazy" width="1280" height="720"><figcaption><b>Menu.</b> A neon sun rising behind the planet.</figcaption></figure>
+      <figure><img src="img/intercecao.jpg" alt="Space interception: an enemy cruiser fires lasers at the ship" loading="lazy" width="1280" height="720"><figcaption><b>Interception.</b> The cruiser hits on the third shot.</figcaption></figure>
+      <figure><img src="img/queda-destrocos.jpg" alt="Pieces of the ship flying to their places on the map" loading="lazy" width="1280" height="720"><figcaption><b>Crash.</b> The wreckage becomes the platforms.</figcaption></figure>
+      <figure><img src="img/combate.jpg" alt="Boss fight among hull platforms" loading="lazy" width="1280" height="720"><figcaption><b>Fight.</b> 2,000 HP and a special attack every 20 s.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section id="install">
+  <div class="wrap">
+    <p class="eyebrow">// INSTALL</p>
+    <h2>Install on the RG35XX H</h2>
+    <p class="sub">The game runs on the LÖVE engine and installs through PortMaster, which comes with muOS. It's one zip; PortMaster does the rest.</p>
+    <ul class="need">
+      <li>Anbernic RG35XX H with muOS</li>
+      <li>PortMaster installed</li>
+      <li>Wi-Fi for the first install</li>
+      <li>The SD card in a computer</li>
+    </ul>
+    <ol class="steps">
+      <li><h3>Download the package</h3><p><a href="downloads/crashlanders.zip" download>crashlanders.zip</a> — don't unzip it.</p></li>
+      <li><h3>Copy it to the card</h3><p>Put the zip in the SD card's <code>MUOS/PortMaster/autoinstall/</code> folder (the <code>autoinstall</code> folder inside PortMaster's folder).</p></li>
+      <li><h3>Open PortMaster on the handheld</h3><p>It finds the zip and installs the game by itself. The first time it also downloads the LÖVE 11.5 runtime, so the handheld needs Wi-Fi.</p></li>
+      <li><h3>Play</h3><p>The game shows up under <b>Ports</b> as <b>Crashlanders</b>. Saves and scores are kept inside the game's folder.</p></li>
+    </ol>
+    <p class="note"><b>Optional fonts:</b> by default the handheld version uses LÖVE's built-in font. To match the browser version, copy the Orbitron, VT323, Mr Dafoe and Share Tech Mono TTFs (Google Fonts, OFL licence) into <code>crashlanders/gamedata/assets/fonts/</code>.</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Action</th><th>RG35XX H / gamepad</th><th>Keyboard P1</th><th>Keyboard P2</th></tr></thead>
+        <tbody>
+          <tr><td>Move · aim</td><td>D-pad or stick</td><td>Arrow keys</td><td>W A S D</td></tr>
+          <tr><td>Jump</td><td>A</td><td>AltGr / Right Shift</td><td>1 / Space</td></tr>
+          <tr><td>Shoot (hold to lock direction)</td><td>B or R2</td><td>Right Ctrl</td><td>Q</td></tr>
+          <tr><td>Drop through a platform</td><td>Down + A</td><td>↓ + jump</td><td>S + jump</td></tr>
+          <tr><td>Shop: weapon · fire rate · double jump · parachute</td><td>X · Y · L1 · R1</td><td>Z X C V</td><td>G H J K</td></tr>
+          <tr><td>Confirm · skip the intro</td><td>Start</td><td>Enter</td><td>Enter</td></tr>
+          <tr><td>Back to menu</td><td>Select</td><td>Esc</td><td>Esc</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="gallery" style="margin-top:24px">
+      <figure class="console"><img src="img/consola-orbita.png" alt="Handheld version: orbit cutscene with the boss scan decoding" loading="lazy" width="640" height="480"><figcaption><b>On the handheld.</b> The same game at 640×480.</figcaption></figure>
+      <figure class="console"><img src="img/consola-coop.png" alt="Handheld version in online co-op, connected to a browser" loading="lazy" width="640" height="480"><figcaption><b>Co-op.</b> A handheld joining a game hosted in the browser.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section id="multiplayer">
+  <div class="wrap">
+    <p class="eyebrow">// MULTIPLAYER</p>
+    <h2>Play together, wherever you are</h2>
+    <p class="sub">In every networked mode one device is the <b>host</b>: it runs the game and sends its state to the other about 30 times a second. The guest only sends the buttons it presses. It's cooperative: both of you against the boss. Menu names below are as they appear in the game.</p>
+
+    <div class="grid">
+      <div class="card mode">
+        <p class="tagline">LOCAL</p>
+        <h3>On one device</h3>
+        <span class="pill">browser</span><span class="pill">handheld</span>
+        <p>Choose <b>2 JOGADORES</b> (2 players) in the menu. In the browser each player uses half of the keyboard. On the handheld, player 2 plugs a gamepad into the USB-C port.</p>
+      </div>
+      <div class="card mode">
+        <p class="tagline">LAN</p>
+        <h3>Handheld with handheld</h3>
+        <span class="pill">handheld</span><span class="pill">PC with LÖVE</span><span class="pill">same network</span>
+        <ol>
+          <li>Both devices on the same Wi-Fi.</li>
+          <li>On one: <b>LAN · CO-OP → CRIAR JOGO</b> (create game).</li>
+          <li>On the other: <b>LAN · CO-OP → PROCURAR JOGO</b> (find game) and pick the host.</li>
+        </ol>
+      </div>
+      <div class="card mode">
+        <p class="tagline">ONLINE</p>
+        <h3>Browser with browser</h3>
+        <span class="pill">browser</span><span class="pill">any network</span>
+        <ol>
+          <li>One player picks <b>ONLINE · CO-OP → CRIAR SALA</b> (create room) and gets a 4-letter code.</li>
+          <li>The other picks <b>ENTRAR COM CÓDIGO</b> (join with code) and types it.</li>
+          <li>The intro starts when both are in the room.</li>
+        </ol>
+      </div>
+      <div class="card mode">
+        <p class="tagline">CROSS-PLAY</p>
+        <h3>Browser with handheld</h3>
+        <span class="pill">browser</span><span class="pill">handheld</span><span class="pill">relay on a PC</span>
+        <p>The handheld can't join browser rooms directly. A small program on your PC, the <b>relay</b>, bridges the two. See the steps below.</p>
+      </div>
+    </div>
+
+    <div class="diagram">
+      <svg viewBox="0 0 900 190" role="img" aria-labelledby="dgT dgD">
+        <title id="dgT">How cross-play works</title>
+        <desc id="dgD">The handheld connects over TCP to the relay on a PC on the same network; the relay joins the Supabase Realtime room where the browser is.</desc>
+        <defs><marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#29f3ff" stroke-width="1.6"/></marker></defs>
+        <g font-family="Space Grotesk, sans-serif">
+          <rect x="10" y="50" width="170" height="90" rx="12" fill="#160a33" stroke="#ff2f8e"/>
+          <text x="95" y="88" text-anchor="middle" fill="#ece6ff" font-size="17" font-weight="700">Handheld</text>
+          <text x="95" y="112" text-anchor="middle" fill="#a59bc9" font-size="14">RG35XX H · LÖVE</text>
+          <rect x="250" y="50" width="170" height="90" rx="12" fill="#160a33" stroke="#ffe95a"/>
+          <text x="335" y="88" text-anchor="middle" fill="#ece6ff" font-size="17" font-weight="700">Relay</text>
+          <text x="335" y="112" text-anchor="middle" fill="#a59bc9" font-size="14">on your PC · Node</text>
+          <rect x="490" y="50" width="170" height="90" rx="12" fill="#160a33" stroke="#29f3ff"/>
+          <text x="575" y="88" text-anchor="middle" fill="#ece6ff" font-size="17" font-weight="700">Online room</text>
+          <text x="575" y="112" text-anchor="middle" fill="#a59bc9" font-size="14">Supabase Realtime</text>
+          <rect x="730" y="50" width="160" height="90" rx="12" fill="#160a33" stroke="#ff2f8e"/>
+          <text x="810" y="88" text-anchor="middle" fill="#ece6ff" font-size="17" font-weight="700">Browser</text>
+          <text x="810" y="112" text-anchor="middle" fill="#a59bc9" font-size="14">anywhere</text>
+          <line x1="182" y1="95" x2="246" y2="95" stroke="#29f3ff" stroke-width="2" marker-start="url(#ar)" marker-end="url(#ar)"/>
+          <line x1="422" y1="95" x2="486" y2="95" stroke="#29f3ff" stroke-width="2" marker-start="url(#ar)" marker-end="url(#ar)"/>
+          <line x1="662" y1="95" x2="726" y2="95" stroke="#29f3ff" stroke-width="2" marker-start="url(#ar)" marker-end="url(#ar)"/>
+          <text x="214" y="40" text-anchor="middle" fill="#6f6699" font-size="13">TCP · LAN</text>
+          <text x="454" y="40" text-anchor="middle" fill="#6f6699" font-size="13">wss</text>
+          <text x="694" y="40" text-anchor="middle" fill="#6f6699" font-size="13">wss</text>
+          <path d="M10 165 H420" stroke="#2a1a52" stroke-width="2"/>
+          <text x="215" y="184" text-anchor="middle" fill="#6f6699" font-size="13">your Wi-Fi network</text>
+          <path d="M490 165 H890" stroke="#2a1a52" stroke-width="2"/>
+          <text x="690" y="184" text-anchor="middle" fill="#6f6699" font-size="13">internet</text>
+        </g>
+      </svg>
+      <p class="cap">The relay joins the online room on the handheld's behalf and passes messages both ways. Browser and handheld share the same 4-letter rooms, and either one can host.</p>
+    </div>
+
+    <h3 style="margin-top:34px">Start the relay (once per session)</h3>
+    <ol class="steps" style="margin-top:14px">
+      <li><h3>On a PC on the same network as the handheld</h3><p>You need <a href="https://nodejs.org" rel="noopener">Node.js</a> 22 or newer and the game's source (the <code>relay/</code> folder).</p>
+<pre><span>$</span> cd relay
+<span>$</span> npm install
+<span>$</span> npm start
+relay listening on tcp 47240 (LAN 192.168.1.x)</pre></li>
+      <li><h3>On the handheld</h3><p><b>LAN · CO-OP → PROCURAR JOGO</b>. The relay shows up as <code>ONLINE (relay …)</code>. Pick <b>CRIAR SALA</b> (the code appears on screen) or <b>ENTRAR COM CÓDIGO</b> (choose the letters with the D-pad).</p></li>
+      <li><h3>In the browser</h3><p><b>ONLINE · CO-OP</b> and join the room with the same code, or create the room yourself and give the code to the handheld player.</p></li>
+    </ol>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Mode</th><th>Devices</th><th>Network</th><th>Needs a server?</th></tr></thead>
+        <tbody>
+          <tr><td>Local</td><td>1 browser or 1 handheld</td><td>—</td><td class="no">No</td></tr>
+          <tr><td>LAN</td><td>Handheld ↔ handheld / PC with LÖVE</td><td>Same Wi-Fi</td><td class="no">No</td></tr>
+          <tr><td>Online</td><td>Browser ↔ browser</td><td>Internet</td><td class="yes">Supabase (included)</td></tr>
+          <tr><td>Cross-play</td><td>Browser ↔ handheld</td><td>Handheld and relay on the same network</td><td class="yes">Relay on your PC</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="help">
+  <div class="wrap">
+    <p class="eyebrow">// HELP</p>
+    <h2>Troubleshooting</h2>
+    <details><summary>The game doesn't show up in Ports after copying the zip</summary><p>Check that the whole zip (not unzipped) is inside PortMaster's <code>autoinstall</code> folder, then open PortMaster once. On the first install the handheld needs Wi-Fi to download the LÖVE runtime.</p></details>
+    <details><summary>The screen stays black when the game starts</summary><p>This usually happens when the <code>.sh</code> or <code>.lua</code> files were saved with Windows line endings (CRLF). Always use the zip from this page or from <code>build_zip.py</code>, which forces Unix line endings. The startup log is in <code>ports/crashlanders/log.txt</code>.</p></details>
+    <details><summary>The list under PROCURAR JOGO stays empty</summary><p>Both devices (or the handheld and the relay PC) must be on the same Wi-Fi network. Some guest networks isolate devices from each other. On the PC, allow Node.js and LÖVE through the firewall: the game uses UDP ports 47231 (discovery) and 47232 (LAN game) and TCP port 47240 (relay).</p></details>
+    <details><summary>The online room won't connect ("Erro de ligação")</summary><p>Online rooms use a free Supabase project, which is paused after a few days without use. When that happens it has to be restored in the Supabase dashboard; the browser leaderboard comes back too.</p></details>
+    <details><summary>There's lag when playing online</summary><p>The guest sees the game with the latency of its connection to the host (usually 50–150 ms). Since it's cooperative this matters little, but the player with the steadiest connection should host.</p></details>
+    <details><summary>Do my single-player upgrades disappear after playing online?</summary><p>No. LAN and online games never touch the local save, so your single-player progress stays as it was.</p></details>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>CRASHLANDERS · by David Marques</span>
+    <span>Handheld: LÖVE 11.5 (zlib) via PortMaster · Online: Supabase Realtime</span>
+    <a href="https://github.com/dferreiramarques/crashlanders" rel="noopener">Source on GitHub</a>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -355,11 +355,13 @@ function dCinSpace()
   dCinBars("SECTOR 7 — INTERCEPÇÃO", "PROPULSÃO CRÍTICA — EVASÃO DE EMERGÊNCIA")
 end
 
+SCAN_START, SCAN_FULL = 100, 175
+ORBIT_END = SCAN_START + SCAN_FULL + 120
 function uCinOrbit()
   cinT = cinT + 1
   if cinT > 30 then planet.y = lerp(planet.y, SH * .82, .055); planet.r = lerp(planet.r, 240, .04) end
   if cinT > 60 then
-    local tt = (cinT - 60) / 180
+    local tt = min(1.15, (cinT - 60) / 180)   -- settle into orbit while the scan finishes
     local oa = -PI * .6 + tt * PI * .5
     local orR = planet.r * .8
     cs.x = lerp(cs.x, planet.x + math.cos(oa) * orR - 20, .04); cs.y = lerp(cs.y, planet.y + math.sin(oa) * orR - 15, .04)
@@ -367,7 +369,8 @@ function uCinOrbit()
     if gFrame % 5 == 0 then fx(cs.x + 16, cs.y + 18, 1, P.gray, 1, 2) end
     if cinT % 30 == 0 then A.play("thruster") end
   end
-  if cinT > 300 or I.anyPress("start") then gState = "CIN_CRASH"; cinT = 0; initCrashEntry() end
+  -- leave orbit only after the boss scan is complete and has stayed up for 2 s
+  if cinT > ORBIT_END or I.anyPress("start") then gState = "CIN_CRASH"; cinT = 0; initCrashEntry() end
 end
 
 -- ── Foreshadowing: what waits on this planet ──
@@ -434,7 +437,7 @@ function dBossScan(x, y, w, h, t)
       G.text(r[2], tx + 70, y + 74 + (i - 1) * 14, "left", f14, "#7fe9ff")
     end
   end
-  if t > 175 and t % 30 < 20 then G.text("AMEAÇA: EXTREMA", tx, y + h - 8, "left", f14, "#ff4040") end
+  if t > SCAN_FULL and (t < SCAN_FULL + 30 or t % 30 < 20) then G.text("AMEAÇA: EXTREMA", tx, y + h - 8, "left", f14, "#ff4040") end
   G.alpha = 1
 end
 
@@ -453,7 +456,7 @@ function dCinOrbit()
   G.text(string.format("ALT %03d KM", max(0, floor(140 - cinT * .45))), 24, 58, "left", fv, "#29f3ff")
   G.text(string.format("VEL %.1f KM/S", 7.4 + cinT * .01), 24, 74, "left", fv, "#29f3ff")
   hudGauge(24, SH - 64, "TEMP. CASCO", heat, heat > .7 and "#ff2f8e" or "#ffe95a", heat > .7)
-  if cinT > 100 then dBossScan(SW - 292, 42, 276, 128, cinT - 100) end
+  if cinT > SCAN_START then dBossScan(SW - 292, 42, 276, 128, cinT - SCAN_START) end
   dCinBars("PLANETA KETH-" .. (levelNum + 8) .. "  ·  CLASSE HOSTIL", "PROPULSÃO DESTRUÍDA — ENTRADA NA ATMOSFERA")
 end
 

@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Crashlanders — guia</title>
 <meta name="description" content="Crashlanders: como instalar na Anbernic RG35XX H (muOS + PortMaster) e como jogar em multiplayer local, LAN, online e cross-play.">
+<link rel="alternate" hreflang="pt" href="index.html">
+<link rel="alternate" hreflang="en" href="en.html">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=VT323&family=Mr+Dafoe&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
@@ -38,6 +40,9 @@ nav .brand{font:900 16px Orbitron,sans-serif;letter-spacing:.06em;color:#fff;tex
 nav .links{display:flex;gap:18px;margin-left:auto}
 nav .links a{font:500 15px "Space Grotesk",system-ui,sans-serif;color:var(--muted);text-decoration:none;white-space:nowrap}
 nav .links a:hover{color:var(--cyan)}
+nav .lang{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;flex:none}
+nav .lang a{font:500 13px "Space Grotesk",system-ui,sans-serif;padding:4px 10px;color:var(--muted);text-decoration:none}
+nav .lang a[aria-current]{background:var(--magenta);color:#fff}
 
 /* hero */
 .hero{padding-top:56px;padding-bottom:40px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:40px;align-items:center}
@@ -133,6 +138,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:14px 30px;justify-content:space-bet
   nav .links{gap:14px}
   ol.steps>li{padding:66px 18px 18px}
 }
+@media (max-width:640px){ nav .links{display:none} nav .lang{margin-left:auto} }
 @media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} .btn{transition:none} }
 </style>
 </head>
@@ -147,6 +153,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:14px 30px;justify-content:space-bet
       <a href="#multiplayer">Multiplayer</a>
       <a href="#ajuda">Ajuda</a>
     </div>
+    <div class="lang" aria-label="Idioma"><a href="index.html" hreflang="pt" aria-current="page">PT</a><a href="en.html" hreflang="en">EN</a></div>
   </div>
 </nav>
 
